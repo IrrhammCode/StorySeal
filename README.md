@@ -1,14 +1,30 @@
 # StorySeal
 
+> **⚠️ SUBMISSION STATUS: PHASE 2 (WEEKS 3-4)**  
+> *Current Progress: Full Implementation Complete - Watermarking, Detection, IP Registration*
+
 **Verify the Origin. Seal the Creation.**
 
 Advanced IP protection suite for the Generative AI era. StorySeal combines invisible watermarking (steganography) with Story Protocol to ensure that every AI-generated asset is verifiable and traceable.
+
+## Selected Tracks
+
+We are submitting this project for:
+
+1. **Main Track:** IP Detection & Enforcement ($5,000)
+2. **Partner Bounty:** GenAI IP Registration Challenge (ABV.dev)
 
 ## Features
 
 - **Create & Register**: Generate high-quality AI assets with ABV.dev and automatically register them on Story Protocol
 - **Invisible Protection**: Embed imperceptible watermarks containing Story Protocol IP IDs directly into image pixels
 - **Detection & Enforcement**: Verify image provenance even when metadata is removed
+
+## How It Works
+
+1. **Generate & Register:** Users create assets using **ABV.dev** or **Gemini AI**, which automatically registers them on Story Protocol.
+2. **Invisible Watermark:** StorySeal embeds a steganographic watermark (IP ID) into the image pixels using LSB steganography.
+3. **Detection:** A public verification tool detects the watermark and retrieves the original IP ownership from the blockchain.
 
 ## Tech Stack
 
@@ -17,6 +33,10 @@ Advanced IP protection suite for the Generative AI era. StorySeal combines invis
 - **3D Graphics**: React Three Fiber, Three.js
 - **Animations**: Framer Motion
 - **Icons**: Lucide React
+- **GenAI & IP**: ABV.dev API, Google Gemini AI
+- **Blockchain**: Story Protocol SDK, Wagmi, Viem
+- **Security**: LSB Steganography (JavaScript/TypeScript)
+- **Storage**: IPFS (Pinata)
 
 ## Design System
 
@@ -35,7 +55,7 @@ npm install
 
    **Option A: Copy from template**
    ```bash
-   cp .env.example .env.local
+   cp env.template .env.local
    ```
    Then edit `.env.local` and add your actual API keys.
 
@@ -60,9 +80,18 @@ npm install
    NEXT_PUBLIC_ABV_API_KEY=your-abv-api-key-here
    NEXT_PUBLIC_ABV_API_URL=https://api.abv.dev
 
+   # Google Gemini AI (optional - alternative to ABV.dev)
+   # Get your API key from: https://makersuite.google.com/app/apikey
+   NEXT_PUBLIC_GEMINI_API_KEY=your-gemini-api-key-here
+
    # WalletConnect (optional - for wallet connection)
    # Get your project ID from: https://cloud.walletconnect.com
    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your-walletconnect-project-id
+
+   # Pinata IPFS (for metadata storage)
+   # Get your credentials from: https://pinata.cloud
+   PINATA_JWT=your-pinata-jwt-token
+   PINATA_GATEWAY_URL=https://gateway.pinata.cloud
 
    # Tenderly Configuration (optional - for advanced debugging)
    # Get from Tenderly Dashboard → Settings → API Keys
@@ -85,7 +114,7 @@ npm install
    - You can also configure these settings from the Settings page in the dashboard after connecting your wallet
    - For mainnet deployment (optional), update `NEXT_PUBLIC_STORY_RPC_URL` when Story Protocol mainnet is available
 
-4. **Get Testnet Tokens (IP Tokens)**:
+3. **Get Testnet Tokens (IP Tokens)**:
    
    Aeneid Testnet menggunakan token khusus yang disebut **IP** (bukan ETH biasa). Anda perlu mendapatkan IP tokens dari faucet untuk melakukan transaksi:
    
@@ -101,16 +130,16 @@ npm install
    4. Klaim IP tokens
    5. Setelah mendapat IP tokens, Anda bisa melakukan IP registration di StorySeal
 
-3. Run the development server:
+4. Run the development server:
 ```bash
 npm run dev
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ## Features
 
-- **AI Image Generation**: Generate images using ABV.dev API
+- **AI Image Generation**: Generate images using ABV.dev API or Google Gemini AI
 - **IP Registration**: Register AI-generated content as IP assets on Story Protocol
 - **Watermark Detection**: Detect invisible watermarks in images using LSB steganography
 - **IP Verification**: Verify IP asset ownership and provenance on Story Protocol
@@ -144,19 +173,51 @@ config/
   └── story.ts         # Story Protocol configuration
 services/
   ├── story-protocol.ts # Story Protocol service
-  └── abv-dev.ts       # ABV.dev API service
+  ├── abv-dev.ts       # ABV.dev API service
+  ├── gemini-ai.ts     # Google Gemini AI service
+  ├── ipfs-service.ts  # IPFS upload service
+  ├── c2pa-service.ts  # C2PA manifest service
+  └── yakoa-service.ts # Yakoa integration
 hooks/
   ├── useStoryProtocol.ts # Story Protocol hooks
-  └── useABVDev.ts     # ABV.dev hooks
+  ├── useABVDev.ts     # ABV.dev hooks
+  └── useGeminiAI.ts   # Gemini AI hooks
 lib/
   ├── watermark.ts     # Steganography utilities
-  └── story-client.ts  # Story Protocol client
+  ├── story-client.ts  # Story Protocol client
+  ├── analytics.ts     # Analytics tracking
+  ├── batch-processor.ts # Batch processing
+  └── activity-tracker.ts # Activity tracking
 contexts/
   ├── ThemeContext.tsx # Theme management
   └── ToastContext.tsx # Toast notifications
 ```
 
+## Development Roadmap
+
+**Phase 1 (Completed - Weeks 1-2)**
+- [x] Project Ideation & Architecture
+- [x] Repository Setup
+- [x] Frontend Initialization (Next.js)
+- [x] ABV.dev API Connection
+- [x] Story Protocol Integration
+
+**Phase 2 (Completed - Weeks 3-4)**
+- [x] Watermarking algorithm implementation (LSB Steganography)
+- [x] Detection/Scanner tool implementation
+- [x] IP Registration workflow
+- [x] Verification system
+- [x] Dashboard UI/UX
+- [x] Analytics & Monitoring
+- [x] Final Integration & Testing
+
+**Phase 3 (Future Enhancements)**
+- [ ] Advanced watermarking techniques
+- [ ] Multi-chain support
+- [ ] License marketplace
+- [ ] API for third-party integrations
+- [ ] Mobile app
+
 ## License
 
 MIT
-
