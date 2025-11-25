@@ -212,3 +212,8 @@ export async function extractC2PAProvenance(imageFile: File): Promise<{
 
 
 
+
+
+
+
+
