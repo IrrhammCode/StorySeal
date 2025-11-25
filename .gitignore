@@ -1,0 +1,129 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+# Note: package-lock.json and yarn.lock should be committed for consistent installs
+
+# testing
+/coverage
+*.test.js
+*.test.ts
+*.test.tsx
+*.spec.js
+*.spec.ts
+*.spec.tsx
+
+# next.js
+/.next/
+/out/
+.next/
+out/
+
+# production
+/build
+dist/
+build/
+
+# misc
+.DS_Store
+*.pem
+*.key
+*.cert
+*.crt
+Thumbs.db
+desktop.ini
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+
+# local env files - CRITICAL: Never commit these!
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+.env*.backup
+*.env
+!env.template
+
+# API keys and secrets
+*.secret
+*.key
+secrets/
+.secrets/
+config/secrets.json
+config/keys.json
+
+# vercel
+.vercel
+.vercel.json
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+*.cache
+.cache/
+tmp/
+temp/
+instrumentation.ts.bak
+
+# Build artifacts
+*.map
+*.min.js
+*.min.css
+*.bundle.js
+*.chunk.js
+
+# StorySeal specific
+# Local storage backups
+*.localstorage
+*.localstorage.backup
+
+# Test files
+test-*.ts
+test-*.js
+*-test.ts
+*-test.js
+*-spec.ts
+*-spec.js
+

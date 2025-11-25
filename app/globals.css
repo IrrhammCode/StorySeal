@@ -1,0 +1,266 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --porcelain: #F8FAFC;
+  --indigo: #4F46E5;
+  --coral: #F43F5E;
+  
+  /* Enhanced color palette */
+  --indigo-50: #EEF2FF;
+  --indigo-100: #E0E7FF;
+  --indigo-200: #C7D2FE;
+  --indigo-300: #A5B4FC;
+  --indigo-400: #818CF8;
+  --indigo-500: #6366F1;
+  --indigo-600: #4F46E5;
+  --indigo-700: #4338CA;
+  --indigo-800: #3730A3;
+  --indigo-900: #312E81;
+  --indigo-950: #1E1B4B;
+  
+  --coral-50: #FFF1F2;
+  --coral-100: #FFE4E6;
+  --coral-200: #FECDD3;
+  --coral-300: #FDA4AF;
+  --coral-400: #FB7185;
+  --coral-500: #F43F5E;
+  --coral-600: #E11D48;
+  --coral-700: #BE123C;
+  --coral-800: #9F1239;
+  --coral-900: #881337;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body {
+  /* StorySeal Professional Gradient - Soft & Eye-Friendly */
+  /* Comfortable, professional gradient with soft indigo to coral transition */
+  background: linear-gradient(135deg, 
+    #0F172A 0%,      /* Soft Slate Base */
+    #1E293B 20%,     /* Gentle Slate */
+    #1E3A8A 35%,     /* Soft Blue-Indigo */
+    #1E40AF 50%,     /* Medium Blue-Indigo */
+    #2563EB 65%,     /* Calm Blue */
+    #3B82F6 75%,     /* Soft Blue */
+    #F87171 85%,     /* Soft Coral */
+    #FB7185 95%,     /* Gentle Coral */
+    #FCA5A5 100%     /* Light Coral */
+  );
+  background-attachment: fixed;
+  background-size: 200% 200%;
+  animation: gradientShift 30s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Glassmorphism Utilities */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+}
+
+.glass-card-hover {
+  transition: all 0.3s ease;
+}
+
+.glass-card-hover:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.25);
+  transform: translateY(-2px);
+}
+
+/* Background Pattern - Soft & Comfortable */
+/* Gentle radial gradients that are easy on the eyes */
+.bg-pattern {
+  background-image: 
+    radial-gradient(circle at 20% 30%, rgba(37, 99, 235, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(251, 113, 133, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.05) 0%, transparent 60%);
+}
+
+.dark .bg-pattern {
+  background-image: 
+    radial-gradient(circle at 20% 30%, rgba(37, 99, 235, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(251, 113, 133, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.06) 0%, transparent 60%);
+}
+
+/* Grid Pattern - Very Subtle */
+.bg-grid {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 50px 50px;
+  opacity: 0.3;
+}
+
+.dark .bg-grid {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  opacity: 0.25;
+}
+
+/* Gradient Text */
+.gradient-text {
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #EC4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-indigo {
+  background: linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #818CF8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-coral {
+  background: linear-gradient(135deg, #F43F5E 0%, #FB7185 50%, #FDA4AF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Smooth Gradient Backgrounds */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #818CF8 100%);
+}
+
+.bg-gradient-secondary {
+  background: linear-gradient(135deg, #F43F5E 0%, #FB7185 50%, #FDA4AF 100%);
+}
+
+.bg-gradient-subtle {
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(99, 102, 241, 0.05) 100%);
+}
+
+.bg-gradient-card {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.1) 0%, 
+    rgba(255, 255, 255, 0.05) 100%);
+}
+
+/* StorySeal Professional Background Gradient - Soft & Comfortable */
+.bg-storyseal-gradient {
+  background: linear-gradient(135deg, 
+    #0F172A 0%,      /* Soft Slate Base */
+    #1E293B 20%,     /* Gentle Slate */
+    #1E3A8A 35%,     /* Soft Blue-Indigo */
+    #1E40AF 50%,     /* Medium Blue-Indigo */
+    #2563EB 65%,     /* Calm Blue */
+    #3B82F6 75%,     /* Soft Blue */
+    #F87171 85%,     /* Soft Coral */
+    #FB7185 95%,     /* Gentle Coral */
+    #FCA5A5 100%     /* Light Coral */
+  );
+}
+
+/* StorySeal Soft Radial Gradients - Eye-Friendly */
+.bg-storyseal-indigo-glow {
+  background: radial-gradient(circle at center, rgba(37, 99, 235, 0.1) 0%, transparent 70%);
+}
+
+.bg-storyseal-coral-glow {
+  background: radial-gradient(circle at center, rgba(251, 113, 133, 0.08) 0%, transparent 70%);
+}
+
+/* Cyberpunk Floating Animation for Geometric Nodes */
+@keyframes float0 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(30px, -30px) rotate(120deg); }
+  66% { transform: translate(-20px, 20px) rotate(240deg); }
+}
+
+@keyframes float1 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(-40px, 40px) rotate(-120deg); }
+  66% { transform: translate(30px, -20px) rotate(-240deg); }
+}
+
+@keyframes float2 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(20px, 30px) rotate(90deg); }
+  66% { transform: translate(-30px, -40px) rotate(180deg); }
+}
+
+@keyframes float3 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(-30px, -20px) rotate(-90deg); }
+  66% { transform: translate(40px, 30px) rotate(-180deg); }
+}
+
+@keyframes float4 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(25px, -25px) rotate(180deg); }
+}
+
+@keyframes float5 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(-25px, 25px) rotate(-180deg); }
+}
+
+@keyframes float6 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(35px, 15px) rotate(60deg); }
+  66% { transform: translate(-15px, -35px) rotate(120deg); }
+}
+
+@keyframes float7 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(-15px, -35px) rotate(-60deg); }
+  66% { transform: translate(35px, 15px) rotate(-120deg); }
+}
+
