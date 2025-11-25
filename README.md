@@ -176,7 +176,6 @@ services/
   ├── gemini-ai.ts     # Google Gemini AI service
   ├── ipfs-service.ts  # IPFS upload service
   ├── c2pa-service.ts  # C2PA manifest service
-  └── yakoa-service.ts # Yakoa integration
 hooks/
   ├── useStoryProtocol.ts # Story Protocol hooks
   ├── useABVDev.ts     # ABV.dev hooks

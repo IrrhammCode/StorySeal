@@ -29,9 +29,6 @@ export default function SettingsPage() {
   const [showApiKey, setShowApiKey] = useState(false)
   const [geminiApiKey, setGeminiApiKey] = useState('')
   const [showGeminiApiKey, setShowGeminiApiKey] = useState(false)
-  const [yakoaApiKey, setYakoaApiKey] = useState('')
-  const [showYakoaApiKey, setShowYakoaApiKey] = useState(false)
-  const [yakoaSubdomain, setYakoaSubdomain] = useState('')
   const [tineyeApiKey, setTineyeApiKey] = useState('')
   const [showTineyeApiKey, setShowTineyeApiKey] = useState(false)
   const [pinataJwtToken, setPinataJwtToken] = useState('')
@@ -54,8 +51,6 @@ export default function SettingsPage() {
     if (typeof window !== 'undefined') {
       const storedApiKey = localStorage.getItem('abv_api_key')
       const storedGeminiApiKey = localStorage.getItem('gemini_api_key')
-      const storedYakoaApiKey = localStorage.getItem('yakoa_api_key')
-      const storedYakoaSubdomain = localStorage.getItem('yakoa_subdomain')
       const storedTineyeApiKey = localStorage.getItem('tineye_api_key')
       const storedPinataJwt = localStorage.getItem('pinata_jwt_token')
       const storedPinataApiKey = localStorage.getItem('pinata_api_key')
@@ -65,8 +60,6 @@ export default function SettingsPage() {
       
       if (storedApiKey) setAbvApiKey(storedApiKey)
       if (storedGeminiApiKey) setGeminiApiKey(storedGeminiApiKey)
-      if (storedYakoaApiKey) setYakoaApiKey(storedYakoaApiKey)
-      if (storedYakoaSubdomain) setYakoaSubdomain(storedYakoaSubdomain)
       if (storedTineyeApiKey) setTineyeApiKey(storedTineyeApiKey)
       if (storedPinataJwt) setPinataJwtToken(storedPinataJwt)
       if (storedPinataApiKey) setPinataApiKey(storedPinataApiKey)
@@ -93,20 +86,6 @@ export default function SettingsPage() {
       localStorage.setItem('gemini_api_key', geminiApiKey)
     } else {
       localStorage.removeItem('gemini_api_key')
-    }
-    
-    // Yakoa API Key
-    if (yakoaApiKey) {
-      localStorage.setItem('yakoa_api_key', yakoaApiKey)
-    } else {
-      localStorage.removeItem('yakoa_api_key')
-    }
-    
-    // Yakoa Subdomain
-    if (yakoaSubdomain) {
-      localStorage.setItem('yakoa_subdomain', yakoaSubdomain)
-    } else {
-      localStorage.removeItem('yakoa_subdomain')
     }
     
     // TinEye API Key
@@ -269,64 +248,6 @@ export default function SettingsPage() {
                 • No automatic tracing (unlike ABV.dev)
               </p>
             </div>
-          </div>
-          
-          {/* Yakoa API Key */}
-          <div>
-            <label className="block text-sm font-medium text-white/90 mb-2">
-              Yakoa API Key
-            </label>
-            <div className="relative">
-              <input
-                type={showYakoaApiKey ? 'text' : 'password'}
-                value={yakoaApiKey}
-                onChange={(e) => setYakoaApiKey(e.target.value)}
-                placeholder="Enter your Yakoa API key"
-                className="w-full px-4 py-3 pr-12 border border-white/20 rounded-lg glass-card text-white placeholder-white/50 focus:ring-2 focus:ring-indigo focus:border-transparent outline-none"
-              />
-              <button
-                onClick={() => setShowYakoaApiKey(!showYakoaApiKey)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-white/10 rounded transition-colors"
-              >
-                {showYakoaApiKey ? (
-                  <EyeOff className="w-5 h-5 text-white/70" />
-                ) : (
-                  <Eye className="w-5 h-5 text-white/70" />
-                )}
-              </button>
-            </div>
-            <p className="text-xs text-white/70 mt-2">
-              Used for content authenticity verification and IP detection. Get your key from{' '}
-              <a href="https://docs.yakoa.io" target="_blank" rel="noopener noreferrer" className="text-indigo hover:underline">
-                Yakoa Documentation
-              </a>
-              .
-            </p>
-          </div>
-          
-          {/* Yakoa Subdomain */}
-          <div>
-            <label className="block text-sm font-medium text-white/90 mb-2">
-              Yakoa Subdomain
-            </label>
-            <input
-              type="text"
-              value={yakoaSubdomain}
-              onChange={(e) => setYakoaSubdomain(e.target.value)}
-              placeholder="Enter your Yakoa subdomain (e.g., your-company)"
-              className="w-full px-4 py-3 border border-white/20 rounded-lg glass-card text-white placeholder-white/50 focus:ring-2 focus:ring-indigo focus:border-transparent outline-none"
-            />
-            <p className="text-xs text-white/70 mt-2">
-              Your Yakoa subdomain. This appears in both the base URL and endpoint path. 
-              Format: <code className="bg-white/10 px-1 rounded">https://{'{subdomain}'}.ip-api-sandbox.yakoa.io/{'{subdomain}'}/token</code>
-            </p>
-            {!yakoaSubdomain && (
-              <div className="mt-2 p-3 bg-yellow-50 bg-yellow-500/10 border border-yellow-200 border-yellow-400/30 rounded-lg">
-                <p className="text-xs text-yellow-800 text-yellow-300">
-                  <strong>⚠️ Default:</strong> If not set, will use "docs-demo" (demo subdomain from Yakoa docs).
-                </p>
-              </div>
-            )}
           </div>
           
           {/* TinEye API Key */}

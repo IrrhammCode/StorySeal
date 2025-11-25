@@ -982,10 +982,10 @@ export class StoryProtocolService {
         owner: formattedRecipient,
         name: params.name,
         registeredAt: new Date().toISOString(),
-        transactionHash: hash, // Include transaction hash for Yakoa registration
+        transactionHash: hash,
         metadata: {
           ...params.metadata,
-          mediaUrl: imageIpfsUri, // Include IPFS URL for Yakoa registration
+          mediaUrl: imageIpfsUri,
           ipfsHash: imageIpfsHash,
         },
       }

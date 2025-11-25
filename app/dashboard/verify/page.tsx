@@ -20,7 +20,6 @@ import { useStoryService } from '@/hooks/useStoryProtocol'
 import { useToast } from '@/contexts/ToastContext'
 import { addActivity } from '@/lib/activity-tracker'
 import { verifyC2PAManifest, extractC2PAProvenance } from '@/services/c2pa-service'
-import { verifyWithYakoa } from '@/services/yakoa-service'
 
 type VerifyStatus = 'idle' | 'uploading' | 'analyzing' | 'verified' | 'not_found' | 'error'
 
@@ -40,9 +39,6 @@ interface VerificationResult {
     created?: string
     generator?: string
   }
-  yakoaVerification?: {
-    isAuthentic: boolean
-    originality: number
     hasViolations: boolean
   }
 }
@@ -92,25 +88,9 @@ export default function VerifyPage() {
       const ipId = await extractWatermarkFromImage(selectedFile)
 
       if (!ipId) {
-        // No watermark found - but check with Yakoa for originality
-        let yakoaVerification
-        try {
-          const yakoaResult = await verifyWithYakoa({ imageFile: selectedFile })
-          yakoaVerification = {
-            isAuthentic: yakoaResult.isAuthentic,
-            originality: yakoaResult.originality,
-            hasViolations: yakoaResult.hasViolations,
-            creator: yakoaResult.creator,
-          }
-          console.log('[Verify] ✅ Yakoa verification completed (no watermark):', yakoaVerification)
-        } catch (yakoaError) {
-          console.warn('[Verify] Yakoa verification failed (non-critical):', yakoaError)
-        }
-
         // No watermark found
         setResult({
           hasWatermark: false,
-          yakoaVerification,
         })
         setStatus('not_found')
         return
@@ -155,21 +135,6 @@ export default function VerifyPage() {
         console.warn('[Verify] C2PA verification failed (non-critical):', c2paError)
       }
 
-      // Step 5: Yakoa Verification (if available)
-      let yakoaVerification
-      try {
-        const yakoaResult = await verifyWithYakoa({ imageFile: selectedFile })
-        yakoaVerification = {
-          isAuthentic: yakoaResult.isAuthentic,
-          originality: yakoaResult.originality,
-          hasViolations: yakoaResult.hasViolations,
-          creator: yakoaResult.creator,
-        }
-        console.log('[Verify] ✅ Yakoa verification completed:', yakoaVerification)
-      } catch (yakoaError) {
-        console.warn('[Verify] Yakoa verification failed (non-critical):', yakoaError)
-      }
-
       // Success: Watermark found and IP Asset verified
       setResult({
         hasWatermark: true,
@@ -178,7 +143,6 @@ export default function VerifyPage() {
         registeredAt: ipAsset.registeredAt,
         metadata: ipAsset.metadata,
         c2paProvenance,
-        yakoaVerification,
       })
 
       setStatus('verified')
@@ -460,122 +424,6 @@ export default function VerifyPage() {
                   </div>
                 )}
 
-                {/* Yakoa Verification */}
-                {result.yakoaVerification && (
-                  <div className={`rounded-lg p-4 border ${
-                    result.yakoaVerification.isAuthentic 
-                      ? 'bg-green-50 bg-green-500/10 border-green-200 border-green-400/30'
-                      : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
-                  }`}>
-                    <div className="flex items-center space-x-2 mb-3">
-                      <CheckCircle className={`w-4 h-4 ${
-                        result.yakoaVerification.isAuthentic 
-                          ? 'text-green-600 text-green-300'
-                          : 'text-yellow-600 dark:text-yellow-400'
-                      }`} />
-                      <p className={`text-xs font-medium uppercase ${
-                        result.yakoaVerification.isAuthentic 
-                          ? 'text-green-900 text-green-200'
-                          : 'text-yellow-900 dark:text-yellow-300'
-                      }`}>Yakoa Verification</p>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <span className={result.yakoaVerification.isAuthentic ? 'text-green-700 text-green-300' : 'text-yellow-700 dark:text-yellow-400'}>
-                          Status: 
-                        </span>
-                        <span className={`ml-2 font-medium ${
-                          result.yakoaVerification.isAuthentic 
-                            ? 'text-green-900 text-green-200'
-                            : 'text-yellow-900 dark:text-yellow-300'
-                        }`}>
-                          {result.yakoaVerification.isAuthentic ? 'Authentic' : 'Potential Issues'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className={result.yakoaVerification.isAuthentic ? 'text-green-700 text-green-300' : 'text-yellow-700 dark:text-yellow-400'}>
-                          Originality Score: 
-                        </span>
-                        <span className={`ml-2 font-medium ${
-                          result.yakoaVerification.isAuthentic 
-                            ? 'text-green-900 text-green-200'
-                            : 'text-yellow-900 dark:text-yellow-300'
-                        }`}>
-                          {result.yakoaVerification.originality}%
-                        </span>
-                      </div>
-                      {result.yakoaVerification.hasViolations && (
-                        <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">
-                          <p className="text-xs text-red-700 dark:text-red-400">
-                            ⚠️ Violations detected. Please review.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Creator Info from Yakoa */}
-                {result.yakoaVerification?.creator && (
-                  <div className="glass-card rounded-lg p-4 border border-white/10">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <Shield className="w-4 h-4 text-indigo-400" />
-                      <p className="text-xs font-medium text-white/70 uppercase">Original Creator</p>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      {result.yakoaVerification.creator.name && (
-                        <div>
-                          <span className="text-white/70">Name: </span>
-                          <span className="text-white font-medium">{result.yakoaVerification.creator.name}</span>
-                        </div>
-                      )}
-                      {result.yakoaVerification.creator.address && (
-                        <div>
-                          <span className="text-white/70">Address: </span>
-                          <span className="text-white font-mono text-xs">{result.yakoaVerification.creator.address}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center space-x-2">
-                        <span className="text-white/70">Verified: </span>
-                        {result.yakoaVerification.creator.verified ? (
-                          <span className="text-green-400 flex items-center space-x-1">
-                            <CheckCircle className="w-3 h-3" />
-                            <span>Yes</span>
-                          </span>
-                        ) : (
-                          <span className="text-yellow-400">Not verified</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Licensing Options */}
-                {result.yakoaVerification && !result.hasWatermark && (
-                  <div className="glass-card rounded-lg p-4 border border-indigo-400/30">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <Shield className="w-4 h-4 text-indigo-400" />
-                      <p className="text-xs font-medium text-white/70 uppercase">Licensing Options</p>
-                    </div>
-                    <div className="space-y-2 text-sm text-white/70 mb-4">
-                      <p>This content appears to be original. Protect it by registering on Story Protocol:</p>
-                      <ul className="list-disc list-inside space-y-1 ml-2">
-                        <li>Claim ownership on-chain</li>
-                        <li>Set licensing terms</li>
-                        <li>Enable commercial remix with royalties</li>
-                        <li>Track usage and violations</li>
-                      </ul>
-                    </div>
-                    <a
-                      href="/dashboard/create"
-                      className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors text-sm font-medium"
-                    >
-                      <Shield className="w-4 h-4" />
-                      <span>Register to Story Protocol</span>
-                    </a>
-                  </div>
-                )}
-
                 {/* Metadata */}
                 {result.metadata && (
                   <div className="bg-white glass rounded-lg p-4">
@@ -650,48 +498,6 @@ export default function VerifyPage() {
               <p className="text-sm text-yellow-700 dark:text-yellow-400 mb-4">
                 This image does not contain a StorySeal watermark. It may not have been registered on Story Protocol, or the watermark may have been removed.
               </p>
-
-              {/* Yakoa Results for Original Content */}
-              {result.yakoaVerification && (
-                <div className="mb-4 p-4 glass-card rounded-lg border border-indigo-400/30">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <Shield className="w-4 h-4 text-indigo-400" />
-                    <p className="text-xs font-medium text-white/70 uppercase">Content Authenticity Check</p>
-                  </div>
-                  <div className="space-y-2 text-sm mb-4">
-                    <div>
-                      <span className="text-white/70">Originality Score: </span>
-                      <span className="text-white font-medium">{result.yakoaVerification.originality}%</span>
-                    </div>
-                    {result.yakoaVerification.creator && (
-                      <div className="mt-3 p-3 bg-indigo-500/10 rounded border border-indigo-400/20">
-                        <p className="text-xs font-medium text-indigo-300 mb-2">Original Creator Found:</p>
-                        {result.yakoaVerification.creator.name && (
-                          <p className="text-sm text-white">{result.yakoaVerification.creator.name}</p>
-                        )}
-                        {result.yakoaVerification.creator.address && (
-                          <p className="text-xs text-white/70 font-mono mt-1">{result.yakoaVerification.creator.address}</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-2 text-sm text-white/70 mb-4">
-                    <p className="font-medium text-white">Protect this content:</p>
-                    <ul className="list-disc list-inside space-y-1 ml-2">
-                      <li>Register on Story Protocol for on-chain protection</li>
-                      <li>Set licensing terms and enable remix with royalties</li>
-                      <li>Track usage and detect violations automatically</li>
-                    </ul>
-                  </div>
-                  <a
-                    href="/dashboard/create"
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors text-sm font-medium"
-                  >
-                    <Shield className="w-4 h-4" />
-                    <span>Register to Story Protocol</span>
-                  </a>
-                </div>
-              )}
 
               <button
                 onClick={handleReset}

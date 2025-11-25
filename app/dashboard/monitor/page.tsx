@@ -32,7 +32,6 @@ import { trackScanTime, trackDetection, trackViolation } from '@/lib/analytics'
 import { parseError, logError } from '@/lib/error-handler'
 import { validateUrl, validateFile } from '@/lib/validation'
 import { verifyC2PAManifest, extractC2PAProvenance } from '@/services/c2pa-service'
-import { verifyWithYakoa, checkOriginality, findOriginalCreator } from '@/services/yakoa-service'
 import { reverseImageSearch, findImageUsage } from '@/services/reverse-image-search'
 
 type ScanStatus = 'idle' | 'scanning' | 'completed' | 'error'
@@ -62,7 +61,6 @@ export default function MonitorPage() {
   const [error, setError] = useState<string | null>(null)
   const [enableAIDetection, setEnableAIDetection] = useState(true)
   const [enableC2PAVerification, setEnableC2PAVerification] = useState(true)
-  const [enableYakoaVerification, setEnableYakoaVerification] = useState(true)
   const [enableReverseSearch, setEnableReverseSearch] = useState(false)
   const [selectedResult, setSelectedResult] = useState<ScanResult | null>(null)
   const [showEnforcementModal, setShowEnforcementModal] = useState(false)
@@ -217,33 +215,7 @@ export default function MonitorPage() {
         }
       }
 
-      // Step 4: Yakoa Verification (if enabled)
-      if (enableYakoaVerification) {
-        try {
-          showToast('info', 'Running Yakoa authenticity check...')
-          
-          const yakoaResult = await verifyWithYakoa({ imageFile: file })
-          
-          if (yakoaResult.hasViolations && yakoaResult.violations) {
-            console.log('[Monitor] ⚠️ Yakoa detected violations:', yakoaResult.violations)
-            trackViolation()
-            
-            if (result.status === 'unknown') {
-              result.status = 'violation'
-            }
-          }
-          
-          if (yakoaResult.creator && yakoaResult.creator.verified) {
-            console.log('[Monitor] ✅ Original creator found:', yakoaResult.creator)
-          }
-          
-          trackDetection('yakoa')
-        } catch (yakoaError) {
-          console.warn('Yakoa verification failed (non-critical):', yakoaError)
-        }
-      }
-
-      // Step 5: Reverse Image Search (if enabled)
+      // Step 4: Reverse Image Search (if enabled)
       if (enableReverseSearch) {
         try {
           showToast('info', 'Searching for image usage online...')
@@ -481,15 +453,6 @@ export default function MonitorPage() {
                 className="w-4 h-4 text-indigo rounded focus:ring-indigo"
               />
               <span className="text-xs text-gray-700 text-white/70">C2PA Verify</span>
-            </label>
-            <label className="flex items-center space-x-2 cursor-pointer p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-              <input
-                type="checkbox"
-                checked={enableYakoaVerification}
-                onChange={(e) => setEnableYakoaVerification(e.target.checked)}
-                className="w-4 h-4 text-indigo rounded focus:ring-indigo"
-              />
-              <span className="text-xs text-gray-700 text-white/70">Yakoa Verify</span>
             </label>
             <label className="flex items-center space-x-2 cursor-pointer p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
               <input

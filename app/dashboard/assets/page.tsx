@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import { useIPAssetsByOwner } from '@/hooks/useStoryProtocol'
 import { useToast } from '@/contexts/ToastContext'
-import { getTokenFromYakoa } from '@/services/yakoa-service'
 import { 
   FileText, 
   Image as ImageIcon, 
@@ -105,8 +104,6 @@ export default function AssetsPage() {
         status: 'protected' as const,
         metadata: {
           ...asset.metadata,
-          // Ensure yakoaTokenId is included from metadata
-          yakoaTokenId: asset.metadata?.yakoaTokenId || null,
         },
       }))
     : [] // Empty array if not connected or loading
@@ -144,48 +141,6 @@ export default function AssetsPage() {
     showToast('success', 'IP Asset ID copied to clipboard!')
   }
 
-  // Check violations for a specific asset
-  const handleCheckViolations = async (asset: IPAsset) => {
-    const yakoaTokenId = asset.metadata?.yakoaTokenId
-    if (!yakoaTokenId) {
-      showToast('warning', 'This asset is not registered with Yakoa. Register it first to enable violation monitoring.')
-      return
-    }
-
-    setCheckingViolations(prev => new Set(prev).add(asset.id))
-    try {
-      console.log('[AssetsPage] Checking violations for token:', yakoaTokenId)
-      const result = await getTokenFromYakoa({ tokenId: yakoaTokenId })
-      
-      setViolations(prev => {
-        const newMap = new Map(prev)
-        newMap.set(asset.id, result)
-        return newMap
-      })
-
-      if (result.infringements && result.infringements.length > 0) {
-        showToast('warning', `⚠️ ${result.infringements.length} violation(s) detected!`, 5000)
-        // Show notification
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('Violation Detected', {
-            body: `${result.infringements.length} violation(s) found for ${asset.name}`,
-            icon: '/favicon.ico',
-          })
-        }
-      } else {
-        showToast('success', '✅ No violations detected. Your content is safe!')
-      }
-    } catch (error: any) {
-      console.error('[AssetsPage] Failed to check violations:', error)
-      showToast('error', `Failed to check violations: ${error.message}`)
-    } finally {
-      setCheckingViolations(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(asset.id)
-        return newSet
-      })
-    }
-  }
 
   // Auto-check violations periodically
   useEffect(() => {
@@ -198,11 +153,7 @@ export default function AssetsPage() {
 
     const checkAllViolations = async () => {
       console.log('[AssetsPage] Auto-checking violations for all assets...')
-      const assetsWithYakoa = assets.filter(a => a.metadata?.yakoaTokenId)
-      
-      for (const asset of assetsWithYakoa) {
-        try {
-          const result = await getTokenFromYakoa({ tokenId: asset.metadata!.yakoaTokenId! })
+      // Violation monitoring can be implemented using similarity detection
           
           setViolations(prev => {
             const newMap = new Map(prev)
@@ -584,93 +535,9 @@ export default function AssetsPage() {
                           <span className="text-white">{selectedAsset.metadata.model}</span>
                         </div>
                       )}
-                      {selectedAsset.metadata.yakoaTokenId && (
-                        <div>
-                          <span className="text-white/60">Yakoa Token ID: </span>
-                          <span className="text-white font-mono text-xs">{selectedAsset.metadata.yakoaTokenId}</span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
-
-                {/* Yakoa Violations Check */}
-                <div className="glass rounded-lg p-4 border border-white/10">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-2">
-                      <Shield className="w-4 h-4 text-indigo-400" />
-                      <p className="text-xs font-medium text-white/60 uppercase">Violation Monitoring</p>
-                    </div>
-                    {selectedAsset.metadata?.yakoaTokenId && (
-                      <button
-                        onClick={() => handleCheckViolations(selectedAsset)}
-                        disabled={checkingViolations.has(selectedAsset.id)}
-                        className="px-3 py-1.5 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
-                      >
-                        {checkingViolations.has(selectedAsset.id) ? (
-                          <>
-                            <RefreshCw className="w-3 h-3 animate-spin" />
-                            <span>Checking...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Shield className="w-3 h-3" />
-                            <span>Check Violations</span>
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
-                  
-                  {selectedAsset.metadata?.yakoaTokenId ? (
-                    violations.get(selectedAsset.id) ? (
-                      <div className="space-y-2">
-                        {violations.get(selectedAsset.id)?.infringements && violations.get(selectedAsset.id)!.infringements!.length > 0 ? (
-                          <div className="p-3 bg-red-500/10 border border-red-400/30 rounded-lg">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <AlertTriangle className="w-4 h-4 text-red-400" />
-                              <p className="text-sm font-semibold text-red-300">
-                                {violations.get(selectedAsset.id)!.infringements!.length} Violation(s) Detected
-                              </p>
-                            </div>
-                            <div className="space-y-1 text-xs text-red-200/80">
-                              {violations.get(selectedAsset.id)!.infringements!.map((v: any, idx: number) => (
-                                <div key={idx} className="flex items-start space-x-2">
-                                  <span className="text-red-400">•</span>
-                                  <div className="flex-1">
-                                    <p className="font-medium">{v.type || 'Unknown'}</p>
-                                    {v.source && (
-                                      <p className="text-red-300/60">Source: {v.source}</p>
-                                    )}
-                                    {v.details && (
-                                      <p className="text-red-300/60">{v.details}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="p-3 bg-green-500/10 border border-green-400/30 rounded-lg">
-                            <div className="flex items-center space-x-2">
-                              <CheckCircle2 className="w-4 h-4 text-green-400" />
-                              <p className="text-sm font-semibold text-green-300">No violations detected</p>
-                            </div>
-                            <p className="text-xs text-green-200/70 mt-1">Your content is safe and protected</p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-white/60">Click "Check Violations" to scan for potential IP violations</p>
-                    )
-                  ) : (
-                    <div className="p-3 bg-yellow-500/10 border border-yellow-400/30 rounded-lg">
-                      <p className="text-xs text-yellow-300">
-                        ⚠️ This asset is not registered with Yakoa. Register it first to enable violation monitoring.
-                      </p>
-                    </div>
-                  )}
-                </div>
 
                 <div className="flex space-x-3 pt-4">
                   <a

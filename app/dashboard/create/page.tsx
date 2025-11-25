@@ -34,7 +34,6 @@ import { parseError, logError } from '@/lib/error-handler'
 import { validatePrompt, validateBatchPrompts } from '@/lib/validation'
 import { trackGenerationTime } from '@/lib/analytics'
 import { generateC2PAManifest } from '@/services/c2pa-service'
-import { registerTokenToYakoa } from '@/services/yakoa-service'
 
 type GenerationStatus = 'idle' | 'generating' | 'generated' | 'registering' | 'recovering' | 'registered' | 'error'
 type GenerationMode = 'single' | 'batch'
@@ -785,51 +784,6 @@ Please switch your wallet to Aeneid Testnet (Chain ID: ${aeneidTestnet.id}) manu
       console.log('[handleRegister] IP ID:', ipAsset.id)
       console.log('[handleRegister] View on explorer: https://aeneid.explorer.story.foundation/ipa/' + ipAsset.id)
       
-      // Step 6: Register to Yakoa for violation monitoring
-      let yakoaTokenId: string | null = null
-      // Register to Yakoa for violation monitoring
-      // Yakoa requires: creator_id, id, mint_tx, metadata, media
-      if (address && ipAsset.id) {
-        try {
-          console.log('[handleRegister] Registering to Yakoa for violation monitoring...')
-          console.log('[handleRegister] Creator ID (wallet):', address)
-          console.log('[handleRegister] Token ID (IP ID):', ipAsset.id)
-          
-          // Get transaction hash from IP asset if available
-          const mintTx = (ipAsset as any).transactionHash || (ipAsset as any).txHash || null
-          const mediaUrl = (ipAsset as any).metadata?.mediaUrl || (ipAsset as any).metadata?.image || generatedImage
-          
-          const yakoaResult = await registerTokenToYakoa({
-            creatorId: address, // Wallet address of the creator
-            id: ipAsset.id,     // Story Protocol IP ID (token ID)
-            mintTx: mintTx,     // Transaction hash from Story Protocol registration
-            metadata: {
-              name: `StorySeal IP Asset - ${new Date().toISOString()}`,
-              description: `AI-generated artwork registered on Story Protocol. Prompt: ${prompt.trim()}`,
-              ipId: ipAsset.id,
-              owner: address,
-              prompt: prompt.trim() || null,
-              generatedAt: new Date().toISOString(),
-              source: 'storyseal',
-            },
-            media: {
-              url: mediaUrl,
-              type: 'image/svg+xml',
-            },
-            // subdomain will be auto-detected from API key or use default 'docs-demo'
-          })
-          yakoaTokenId = yakoaResult.tokenId || ipAsset.id
-          console.log('[handleRegister] ✅ Registered to Yakoa! Token ID:', yakoaTokenId)
-          console.log('[handleRegister] Yakoa will monitor violations automatically')
-        } catch (yakoaError: any) {
-          // Non-critical error - registration to Story Protocol already succeeded
-          console.warn('[handleRegister] ⚠️ Failed to register to Yakoa (non-critical):', yakoaError)
-          // Don't throw - Story Protocol registration already succeeded
-        }
-      } else {
-        console.warn('[handleRegister] ⚠️ Cannot register to Yakoa: Missing address or IP ID')
-      }
-      
       // Save to localStorage for manual IP assets
       if (address) {
         const manualAssetsKey = `storyseal_manual_ip_assets_${address}`
@@ -850,7 +804,6 @@ Please switch your wallet to Aeneid Testnet (Chain ID: ${aeneidTestnet.id}) manu
               provider: provider,
               method: 'handleRegister-direct-contract',
               mediaUrl: generatedImage || ipAsset.metadata?.mediaUrl || null,
-              yakoaTokenId: yakoaTokenId || null,
             },
           }
           
