@@ -50,6 +50,13 @@ interface ScanResult {
     similarity: number
     confidence: 'high' | 'medium' | 'low'
   }>
+  reverseSearchMatches?: Array<{
+    url: string
+    title?: string
+    thumbnail?: string
+    platform: string
+    similarity?: number
+  }>
 }
 
 export default function MonitorPage() {
@@ -220,19 +227,37 @@ export default function MonitorPage() {
         try {
           showToast('info', 'Searching for image usage online...')
           
+          // Auto-detect provider: Use TinEye if API key available, otherwise Yandex
+          const tineyeApiKey = typeof window !== 'undefined' 
+            ? (localStorage.getItem('tineye_api_key') || process.env.NEXT_PUBLIC_TINEYE_API_KEY)
+            : process.env.NEXT_PUBLIC_TINEYE_API_KEY
+          
+          const provider = tineyeApiKey ? 'tineye' : 'yandex'
+          console.log(`[Monitor] Using reverse search provider: ${provider}`)
+          
           const searchResult = await reverseImageSearch({ 
             imageFile: file,
-            provider: 'yandex' // or 'tineye' if API key available
+            provider: provider as 'tineye' | 'yandex',
+            apiKey: tineyeApiKey || undefined
           })
           
           if (searchResult.found && searchResult.matches.length > 0) {
             console.log('[Monitor] 🔍 Found', searchResult.totalMatches, 'matches online')
             trackDetection('reverse_search')
             
-            // Could add matches to result for display
+            // Store reverse search matches separately
+            result.reverseSearchMatches = searchResult.matches
+            
+            // If no watermark found but reverse search found matches, mark as potential violation
+            if (!result.ipId && result.status === 'unknown') {
+              result.status = 'similar_detected'
+            }
+          } else {
+            console.log('[Monitor] No matches found via reverse search')
           }
         } catch (reverseError) {
           console.warn('Reverse search failed (non-critical):', reverseError)
+          // Don't throw - reverse search is optional
         }
       }
 
@@ -641,6 +666,40 @@ export default function MonitorPage() {
                             IP {match.ipId.slice(0, 10)}... - {Math.round(match.similarity * 100)}% similar ({match.confidence})
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {/* Reverse Search Matches */}
+                    {result.reverseSearchMatches && result.reverseSearchMatches.length > 0 && (
+                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <p className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-2">
+                          <Globe className="w-3 h-3 inline mr-1" />
+                          Found Online ({result.reverseSearchMatches.length} matches):
+                        </p>
+                        {result.reverseSearchMatches.slice(0, 5).map((match, idx) => (
+                          <div key={idx} className="text-xs text-blue-700 dark:text-blue-400 mt-1 flex items-center space-x-2">
+                            <LinkIcon className="w-3 h-3" />
+                            <a 
+                              href={match.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="hover:underline truncate flex-1"
+                              title={match.url}
+                            >
+                              {match.title || match.url}
+                            </a>
+                            {match.similarity && (
+                              <span className="text-blue-600 dark:text-blue-400">
+                                ({Math.round(match.similarity * 100)}%)
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                        {result.reverseSearchMatches.length > 5 && (
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                            +{result.reverseSearchMatches.length - 5} more matches
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>

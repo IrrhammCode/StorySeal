@@ -99,16 +99,44 @@ async function searchWithTinEye(params: ReverseSearchParams): Promise<ReverseSea
 
     const data = await response.json()
     
+    // TinEye API response structure:
+    // {
+    //   "status": "ok",
+    //   "total_results": 123,
+    //   "results": [
+    //     {
+    //       "image_url": "https://...",
+    //       "backlinks": [...],
+    //       "overlay": {...}
+    //     }
+    //   ]
+    // }
+    
+    const results = data.results || []
+    const totalResults = data.total_results || 0
+    
+    // Extract matches from results
+    const matches = results.map((result: any) => {
+      // TinEye returns image_url and backlinks array
+      const backlinks = result.backlinks || []
+      const primaryUrl = result.image_url || result.url || ''
+      
+      // Get first backlink as primary match
+      const primaryBacklink = backlinks[0] || {}
+      
+      return {
+        url: primaryBacklink.url || primaryUrl,
+        title: primaryBacklink.title || result.title || '',
+        thumbnail: result.thumbnail_url || result.thumbnail || primaryUrl,
+        platform: primaryBacklink.domain || result.domain || 'unknown',
+        similarity: result.score || (result.overlay?.score || 0) / 100, // Convert to 0-1 scale
+      }
+    })
+    
     return {
-      found: data.results && data.results.length > 0,
-      matches: (data.results || []).map((result: any) => ({
-        url: result.url || result.image_url,
-        title: result.title,
-        thumbnail: result.thumbnail_url,
-        platform: result.domain || 'unknown',
-        similarity: result.score || 0,
-      })),
-      totalMatches: data.total_results || 0,
+      found: results.length > 0,
+      matches,
+      totalMatches: totalResults,
     }
   } catch (error: any) {
     console.error('[Reverse Search] TinEye error:', error)
@@ -191,6 +219,7 @@ export async function findImageUsage(params: ReverseSearchParams): Promise<{
     })),
   }
 }
+
 
 
 

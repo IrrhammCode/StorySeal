@@ -231,7 +231,22 @@ export async function uploadToIPFS(file: File | Blob, filename?: string): Promis
  */
 export async function uploadTextToIPFS(content: string, filename: string = 'metadata.json'): Promise<string> {
   const blob = new Blob([content], { type: 'application/json' })
-  return uploadToIPFS(blob, filename)
+  const ipfsUrl = await uploadToIPFS(blob, filename)
+  // Extract IPFS hash from URL (ipfs://Qm... or https://gateway.pinata.cloud/ipfs/Qm...)
+  const hash = ipfsUrl.replace('ipfs://', '').replace('https://gateway.pinata.cloud/ipfs/', '').replace('https://ipfs.io/ipfs/', '')
+  return hash // Return just the hash (Qm...)
+}
+
+/**
+ * Upload JSON string to IPFS (for exact hash matching)
+ * This ensures the exact string used for hash calculation is uploaded
+ */
+export async function uploadJSONStringToIPFS(jsonString: string): Promise<string> {
+  const blob = new Blob([jsonString], { type: 'application/json' })
+  const ipfsUrl = await uploadToIPFS(blob, 'metadata.json')
+  // Extract IPFS hash from URL (ipfs://Qm... or https://gateway.pinata.cloud/ipfs/Qm...)
+  const hash = ipfsUrl.replace('ipfs://', '').replace('https://gateway.pinata.cloud/ipfs/', '').replace('https://ipfs.io/ipfs/', '')
+  return hash // Return just the hash (Qm...)
 }
 
 /**
@@ -240,11 +255,7 @@ export async function uploadTextToIPFS(content: string, filename: string = 'meta
  */
 export async function uploadJSONToIPFS(jsonMetadata: any): Promise<string> {
   const jsonString = JSON.stringify(jsonMetadata)
-  const blob = new Blob([jsonString], { type: 'application/json' })
-  const ipfsUrl = await uploadToIPFS(blob, 'metadata.json')
-  // Extract IPFS hash from URL (ipfs://Qm... or https://gateway.pinata.cloud/ipfs/Qm...)
-  const hash = ipfsUrl.replace('ipfs://', '').replace('https://gateway.pinata.cloud/ipfs/', '').replace('https://ipfs.io/ipfs/', '')
-  return hash // Return just the hash (Qm...)
+  return uploadJSONStringToIPFS(jsonString)
 }
 
 /**

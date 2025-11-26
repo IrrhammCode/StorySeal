@@ -4,7 +4,7 @@ import { StoryClient, StoryConfig } from '@story-protocol/core-sdk'
 import { http, createPublicClient, getAddress, parseAbiItem, Address, keccak256, toBytes, decodeEventLog, decodeErrorResult } from 'viem'
 import { STORY_CHAIN_ID } from '@/config/story'
 import { Account } from 'viem'
-import { uploadJSONToIPFS, uploadSVGToIPFS } from '@/services/ipfs-service'
+import { uploadJSONToIPFS, uploadJSONStringToIPFS, uploadSVGToIPFS } from '@/services/ipfs-service'
 
 // Metadata cache untuk avoid duplicate requests
 const metadataCache = new Map<string, { data: any, timestamp: number }>()
@@ -452,42 +452,53 @@ export class StoryProtocolService {
       }
 
       // Step 2: Prepare IP Metadata (following official docs format)
-      const ipMetadata = {
+      // IMPORTANT: Build metadata object with consistent key ordering
+      // Contract will fetch from IPFS and stringify, so we must match exact format
+      const ipMetadata: Record<string, any> = {
         title: params.name,
         description: params.description || 'AI-generated artwork with invisible watermark protection',
         image: imageIpfsUri, // Use IPFS URI instead of data URL
         mediaUrl: imageIpfsUri, // Use IPFS URI instead of data URL
         mediaType: imageUrl.includes('svg') ? 'image/svg+xml' : 'image/png',
-        ...params.metadata,
+      }
+      
+      // Add any additional metadata from params (merge after base fields for consistent ordering)
+      if (params.metadata) {
+        Object.assign(ipMetadata, params.metadata)
       }
 
       // Step 3: Prepare NFT Metadata (ERC-721 standard)
-      const nftMetadata = {
+      // Use consistent key ordering: name, description, image
+      const nftMetadata: Record<string, any> = {
         name: params.name,
         description: params.description || 'Ownership NFT for StorySeal IP Asset',
         image: imageIpfsUri, // Use IPFS URI instead of data URL
       }
 
+      // Step 4: Stringify metadata FIRST to ensure exact same format for upload and hash
+      // CRITICAL: Hash must be calculated from the EXACT string that gets uploaded to IPFS
+      // Contract will fetch from IPFS and calculate hash, so format must match 100%
+      // Use JSON.stringify with no replacer and no spaces for compact, deterministic format
+      const ipMetadataString = JSON.stringify(ipMetadata) // Default: compact format, consistent key order
+      const nftMetadataString = JSON.stringify(nftMetadata) // Default: compact format, consistent key order
+      
+      console.log('[registerIPAssetDirectContract] IP metadata JSON string:', ipMetadataString)
+      console.log('[registerIPAssetDirectContract] NFT metadata JSON string:', nftMetadataString)
+
+      // Calculate hashes BEFORE upload to ensure we use exact same strings
+      const ipHash = await sha256Hash(ipMetadataString)
+      const nftHash = await sha256Hash(nftMetadataString)
+      console.log('[registerIPAssetDirectContract] ✅ IP metadata hash calculated (SHA256):', ipHash)
+      console.log('[registerIPAssetDirectContract] ✅ NFT metadata hash calculated (SHA256):', nftHash)
+
+      // Now upload using the exact same stringified JSON
       console.log('[registerIPAssetDirectContract] Uploading IP metadata to IPFS...')
-      const ipIpfsHash = await uploadJSONToIPFS(ipMetadata)
+      const ipIpfsHash = await uploadJSONStringToIPFS(ipMetadataString)
       console.log('[registerIPAssetDirectContract] ✅ IP metadata uploaded to IPFS:', ipIpfsHash)
 
-      // Step 3: Calculate metadata hash (SHA256)
-      // IMPORTANT: Hash must match what contract calculates from IPFS metadata
-      // Contract will fetch metadata from IPFS and calculate hash, so we must use exact same format
-      const ipMetadataString = JSON.stringify(ipMetadata) // No spacing/formatting differences
-      const ipHash = await sha256Hash(ipMetadataString)
-      console.log('[registerIPAssetDirectContract] ✅ IP metadata hash calculated (SHA256):', ipHash)
-      console.log('[registerIPAssetDirectContract] IP metadata JSON:', ipMetadataString)
-
       console.log('[registerIPAssetDirectContract] Uploading NFT metadata to IPFS...')
-      const nftIpfsHash = await uploadJSONToIPFS(nftMetadata)
+      const nftIpfsHash = await uploadJSONStringToIPFS(nftMetadataString)
       console.log('[registerIPAssetDirectContract] ✅ NFT metadata uploaded to IPFS:', nftIpfsHash)
-
-      const nftMetadataString = JSON.stringify(nftMetadata) // No spacing/formatting differences
-      const nftHash = await sha256Hash(nftMetadataString)
-      console.log('[registerIPAssetDirectContract] ✅ NFT metadata hash calculated (SHA256):', nftHash)
-      console.log('[registerIPAssetDirectContract] NFT metadata JSON:', nftMetadataString)
       
       // Skip hash verification to avoid Pinata rate limiting
       // Hash is calculated from the exact JSON we uploaded, so it should match
@@ -566,8 +577,11 @@ export class StoryProtocolService {
           }
           
           fetchedIpMetadata = await response.json()
+          // Re-stringify to match exact format (contract will do this too)
+          // Use same JSON.stringify() call to ensure format consistency
           fetchedIpMetadataString = JSON.stringify(fetchedIpMetadata)
           console.log('[registerIPAssetDirectContract] ✅ IP metadata fetched from ipfs.io (contract will use this)')
+          console.log('[registerIPAssetDirectContract] Fetched metadata string (first 200 chars):', fetchedIpMetadataString.substring(0, 200))
         } catch (ipfsError: any) {
           console.warn('[registerIPAssetDirectContract] ⚠️ Failed to fetch from ipfs.io, trying Pinata for verification...', ipfsError.message)
           
@@ -584,8 +598,10 @@ export class StoryProtocolService {
           }
           
           fetchedIpMetadata = await pinataResponse.json()
+          // Re-stringify to match exact format (contract will do this too)
           fetchedIpMetadataString = JSON.stringify(fetchedIpMetadata)
           console.log('[registerIPAssetDirectContract] ✅ IP metadata fetched from Pinata (for verification only)')
+          console.log('[registerIPAssetDirectContract] Fetched metadata string (first 200 chars):', fetchedIpMetadataString.substring(0, 200))
           console.warn('[registerIPAssetDirectContract] ⚠️ Contract will use ipfs.io URI, but ipfs.io is not accessible yet. This may cause transaction failure.')
         }
         
@@ -726,6 +742,9 @@ export class StoryProtocolService {
           },
           true, // allowDuplicates
         ],
+        // Increase gas limit to avoid out-of-gas errors
+        // Story Protocol registration can be gas-intensive due to IPFS fetching and validation
+        gas: 5000000n, // 5M gas (should be enough for registration)
       }
       
       // Always pass account for signing
