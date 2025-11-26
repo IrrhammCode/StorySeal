@@ -18,32 +18,31 @@ export interface ReverseSearchResult {
 export interface ReverseSearchParams {
   imageUrl?: string
   imageFile?: File
-  provider?: 'yandex' | 'tineye' | 'google'
+  provider?: 'yandex' | 'google'
   apiKey?: string
 }
 
 /**
- * Reverse image search using Yandex API (free tier available)
+ * Reverse image search using Yandex (FREE - Limited functionality)
+ * 
+ * Note: Yandex doesn't provide official reverse image search API
+ * This is a placeholder implementation. For production use, consider:
+ * - Google Images (no official API, requires scraping - may violate ToS)
+ * - Bing Visual Search API (has free tier)
+ * 
+ * Current implementation: Returns empty results (free alternative not available)
  */
 async function searchWithYandex(params: ReverseSearchParams): Promise<ReverseSearchResult> {
   try {
-    // Yandex Image Search API
-    // Note: Yandex doesn't have official reverse image search API
-    // We'll use a workaround with their image search
-    
     if (!params.imageUrl && !params.imageFile) {
       throw new Error('Either imageUrl or imageFile must be provided')
     }
 
-    // For Yandex, we need to upload image first or use image URL
-    // This is a simplified implementation - actual API may vary
+    console.log('[Reverse Search] Yandex reverse search not implemented (no free API available)')
     
-    console.log('[Reverse Search] Searching with Yandex...')
-    
-    // Mock implementation - replace with actual Yandex API call
-    // Yandex Image Search: https://yandex.com/images/search
-    // Note: Yandex doesn't provide public API for reverse search
-    // Alternative: Use browser automation or third-party service
+    // Yandex doesn't have official reverse image search API
+    // Would require browser automation or third-party service
+    // For now, return empty result
     
     return {
       found: false,
@@ -52,94 +51,6 @@ async function searchWithYandex(params: ReverseSearchParams): Promise<ReverseSea
     }
   } catch (error: any) {
     console.error('[Reverse Search] Yandex error:', error)
-    throw error
-  }
-}
-
-/**
- * Reverse image search using TinEye API (paid)
- */
-async function searchWithTinEye(params: ReverseSearchParams): Promise<ReverseSearchResult> {
-  try {
-    const apiKey = params.apiKey || 
-      (typeof window !== 'undefined' ? localStorage.getItem('tineye_api_key') : null) ||
-      process.env.NEXT_PUBLIC_TINEYE_API_KEY
-
-    if (!apiKey) {
-      throw new Error('TinEye API key not configured')
-    }
-
-    if (!params.imageUrl && !params.imageFile) {
-      throw new Error('Either imageUrl or imageFile must be provided')
-    }
-
-    // TinEye API endpoint
-    const apiUrl = 'https://api.tineye.com/rest/search/'
-
-    const formData = new FormData()
-    
-    if (params.imageFile) {
-      formData.append('image', params.imageFile)
-    } else if (params.imageUrl) {
-      formData.append('image_url', params.imageUrl)
-    }
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'X-Tineye-API-Key': apiKey,
-      },
-      body: formData,
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-      throw new Error(errorData.error || `TinEye API error: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    
-    // TinEye API response structure:
-    // {
-    //   "status": "ok",
-    //   "total_results": 123,
-    //   "results": [
-    //     {
-    //       "image_url": "https://...",
-    //       "backlinks": [...],
-    //       "overlay": {...}
-    //     }
-    //   ]
-    // }
-    
-    const results = data.results || []
-    const totalResults = data.total_results || 0
-    
-    // Extract matches from results
-    const matches = results.map((result: any) => {
-      // TinEye returns image_url and backlinks array
-      const backlinks = result.backlinks || []
-      const primaryUrl = result.image_url || result.url || ''
-      
-      // Get first backlink as primary match
-      const primaryBacklink = backlinks[0] || {}
-      
-      return {
-        url: primaryBacklink.url || primaryUrl,
-        title: primaryBacklink.title || result.title || '',
-        thumbnail: result.thumbnail_url || result.thumbnail || primaryUrl,
-        platform: primaryBacklink.domain || result.domain || 'unknown',
-        similarity: result.score || (result.overlay?.score || 0) / 100, // Convert to 0-1 scale
-      }
-    })
-    
-    return {
-      found: results.length > 0,
-      matches,
-      totalMatches: totalResults,
-    }
-  } catch (error: any) {
-    console.error('[Reverse Search] TinEye error:', error)
     throw error
   }
 }
@@ -173,8 +84,6 @@ export async function reverseImageSearch(params: ReverseSearchParams): Promise<R
     console.log(`[Reverse Search] Using provider: ${provider}`)
 
     switch (provider) {
-      case 'tineye':
-        return await searchWithTinEye(params)
       case 'google':
         return await searchWithGoogle(params)
       case 'yandex':
@@ -210,7 +119,7 @@ export async function findImageUsage(params: ReverseSearchParams): Promise<{
   
   return {
     totalUsages: searchResult.totalMatches,
-    platforms: [...new Set(searchResult.matches.map(m => m.platform))],
+    platforms: Array.from(new Set(searchResult.matches.map(m => m.platform))),
     urls: searchResult.matches.map(m => m.url),
     violations: searchResult.matches.map(m => ({
       url: m.url,

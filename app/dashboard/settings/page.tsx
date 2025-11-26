@@ -29,8 +29,6 @@ export default function SettingsPage() {
   const [showApiKey, setShowApiKey] = useState(false)
   const [geminiApiKey, setGeminiApiKey] = useState('')
   const [showGeminiApiKey, setShowGeminiApiKey] = useState(false)
-  const [tineyeApiKey, setTineyeApiKey] = useState('')
-  const [showTineyeApiKey, setShowTineyeApiKey] = useState(false)
   const [pinataJwtToken, setPinataJwtToken] = useState('')
   const [showPinataJwtToken, setShowPinataJwtToken] = useState(false)
   const [pinataApiKey, setPinataApiKey] = useState('')
@@ -51,7 +49,6 @@ export default function SettingsPage() {
     if (typeof window !== 'undefined') {
       const storedApiKey = localStorage.getItem('abv_api_key')
       const storedGeminiApiKey = localStorage.getItem('gemini_api_key')
-      const storedTineyeApiKey = localStorage.getItem('tineye_api_key')
       const storedPinataJwt = localStorage.getItem('pinata_jwt_token')
       const storedPinataApiKey = localStorage.getItem('pinata_api_key')
       const storedPinataSecretKey = localStorage.getItem('pinata_secret_key')
@@ -60,7 +57,6 @@ export default function SettingsPage() {
       
       if (storedApiKey) setAbvApiKey(storedApiKey)
       if (storedGeminiApiKey) setGeminiApiKey(storedGeminiApiKey)
-      if (storedTineyeApiKey) setTineyeApiKey(storedTineyeApiKey)
       if (storedPinataJwt) setPinataJwtToken(storedPinataJwt)
       if (storedPinataApiKey) setPinataApiKey(storedPinataApiKey)
       if (storedPinataSecretKey) setPinataSecretKey(storedPinataSecretKey)
@@ -86,13 +82,6 @@ export default function SettingsPage() {
       localStorage.setItem('gemini_api_key', geminiApiKey)
     } else {
       localStorage.removeItem('gemini_api_key')
-    }
-    
-    // TinEye API Key
-    if (tineyeApiKey) {
-      localStorage.setItem('tineye_api_key', tineyeApiKey)
-    } else {
-      localStorage.removeItem('tineye_api_key')
     }
     
     // Pinata credentials - save all that are provided
@@ -248,39 +237,6 @@ export default function SettingsPage() {
                 • No automatic tracing (unlike ABV.dev)
               </p>
             </div>
-          </div>
-          
-          {/* TinEye API Key */}
-          <div>
-            <label className="block text-sm font-medium text-white/90 mb-2">
-              TinEye API Key (Optional)
-            </label>
-            <div className="relative">
-              <input
-                type={showTineyeApiKey ? 'text' : 'password'}
-                value={tineyeApiKey}
-                onChange={(e) => setTineyeApiKey(e.target.value)}
-                placeholder="Enter your TinEye API key (optional)"
-                className="w-full px-4 py-3 pr-12 border border-white/20 rounded-lg glass-card text-white placeholder-white/50 focus:ring-2 focus:ring-indigo focus:border-transparent outline-none"
-              />
-              <button
-                onClick={() => setShowTineyeApiKey(!showTineyeApiKey)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-white/10 rounded transition-colors"
-              >
-                {showTineyeApiKey ? (
-                  <EyeOff className="w-5 h-5 text-white/70" />
-                ) : (
-                  <Eye className="w-5 h-5 text-white/70" />
-                )}
-              </button>
-            </div>
-            <p className="text-xs text-white/70 mt-2">
-              Used for reverse image search. Get your key from{' '}
-              <a href="https://tineye.com/api" target="_blank" rel="noopener noreferrer" className="text-indigo hover:underline">
-                TinEye API
-              </a>
-              . Optional - Yandex reverse search works without API key.
-            </p>
           </div>
           
           <div>

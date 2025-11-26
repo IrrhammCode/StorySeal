@@ -227,18 +227,12 @@ export default function MonitorPage() {
         try {
           showToast('info', 'Searching for image usage online...')
           
-          // Auto-detect provider: Use TinEye if API key available, otherwise Yandex
-          const tineyeApiKey = typeof window !== 'undefined' 
-            ? (localStorage.getItem('tineye_api_key') || process.env.NEXT_PUBLIC_TINEYE_API_KEY)
-            : process.env.NEXT_PUBLIC_TINEYE_API_KEY
-          
-          const provider = tineyeApiKey ? 'tineye' : 'yandex'
-          console.log(`[Monitor] Using reverse search provider: ${provider}`)
+          // Use Yandex (free, but limited functionality)
+          console.log('[Monitor] Using reverse search provider: yandex')
           
           const searchResult = await reverseImageSearch({ 
             imageFile: file,
-            provider: provider as 'tineye' | 'yandex',
-            apiKey: tineyeApiKey || undefined
+            provider: 'yandex'
           })
           
           if (searchResult.found && searchResult.matches.length > 0) {
@@ -479,7 +473,7 @@ export default function MonitorPage() {
               />
               <span className="text-xs text-gray-700 text-white/70">C2PA Verify</span>
             </label>
-            <label className="flex items-center space-x-2 cursor-pointer p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            <label className="flex items-center space-x-2 cursor-pointer p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" title="Reverse image search (limited functionality - no free API available)">
               <input
                 type="checkbox"
                 checked={enableReverseSearch}
