@@ -436,7 +436,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="py-12 px-6 border-t border-white/10 relative z-10">
         <div className="max-w-7xl mx-auto text-center text-white/60">
-          <p>© 2024 StorySeal. All rights reserved.</p>
+          <p>© 2025 StorySeal. All rights reserved.</p>
         </div>
       </footer>
       </div>
