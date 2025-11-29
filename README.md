@@ -306,6 +306,7 @@ MIT License - see LICENSE file for details
 - **Story Protocol**: [docs.story.foundation](https://docs.story.foundation)
 - **ABV.dev**: [app.abv.dev](https://app.abv.dev)
 - **Pinata**: [pinata.cloud](https://pinata.cloud)
+- **Tenderly**: [tenderly.co](https://tenderly.co) - Blockchain debugging and development tools
 - **Aeneid Testnet**: [docs.story.foundation/aeneid](https://docs.story.foundation/aeneid)
 
 ## 🙏 Acknowledgments
