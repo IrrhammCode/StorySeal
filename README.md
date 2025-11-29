@@ -86,7 +86,16 @@ StorySeal provides comprehensive intellectual property protection for AI-generat
 
 3. **Configure environment variables**
 
-   Create a `.env.local` file in the root directory:
+   Copy the template file:
+   ```bash
+   # Windows PowerShell
+   Copy-Item env.template .env.local
+   
+   # Linux/Mac
+   cp env.template .env.local
+   ```
+   
+   Then edit `.env.local` and fill in your actual values:
    ```env
    # Story Protocol Configuration
    NEXT_PUBLIC_STORY_RPC_URL=https://aeneid.storyrpc.io
@@ -105,7 +114,9 @@ StorySeal provides comprehensive intellectual property protection for AI-generat
    # NEXT_PUBLIC_PINATA_JWT_TOKEN=your-pinata-jwt-token
    ```
 
-   **Note**: You can also configure these settings from the Settings page in the dashboard after connecting your wallet.
+   **Note**: 
+   - You can also configure these settings from the Settings page in the dashboard after connecting your wallet
+   - See `env.template` for detailed documentation of all environment variables
 
 4. **Get Testnet Tokens**
 
@@ -130,14 +141,45 @@ StorySeal provides comprehensive intellectual property protection for AI-generat
 
 ## 📖 Usage Guide
 
+### ABV.dev Integration Flow
+
+StorySeal integrates seamlessly with ABV.dev for AI generation and Story Protocol registration:
+
+1. **First Time Setup**:
+   - Log in to [ABV.dev](https://app.abv.dev)
+   - Go to **Connectors** in the sidebar
+   - Click **"Manage Dashboard"** for Story Protocol
+   - Activate the Story Protocol connector
+
+2. **Generate & Register**:
+   - Enter your prompt in StorySeal
+   - Generate image (automatically traced to ABV.dev)
+   - Go to ABV.dev → **Connectors** → **Dashboard Story Protocol**
+   - Register your asset (trace and output will appear)
+   - Copy IP Asset ID back to StorySeal (optional)
+
 ### Creating & Registering IP Assets
 
 1. **Connect Your Wallet**: Click "Connect Wallet" and select your preferred wallet
 2. **Navigate to Create & Register**: Go to Dashboard → Create & Register
-3. **Generate Image**: Enter a prompt and generate AI artwork using ABV.dev
-4. **Register on Blockchain**: Click "Register as IP Asset" to register on Story Protocol
-5. **Add Watermark**: Embed an invisible watermark containing the IP ID
-6. **Download Protected Asset**: Download your watermarked image
+3. **Setup ABV.dev Connector** (First time only):
+   - Go to [ABV.dev](https://app.abv.dev) and log in to your account
+   - Navigate to **Connectors** in the sidebar
+   - Click **"Manage Dashboard"** for Story Protocol
+   - Activate the **Story Protocol** connector if not already enabled
+4. **Generate Image**: 
+   - Enter your prompt in the input field
+   - Click "Generate" to create AI artwork using ABV.dev
+   - Your prompt and output are automatically traced to ABV.dev dashboard
+5. **Register on Story Protocol**:
+   - Go to ABV.dev dashboard → **Connectors** → **Dashboard Story Protocol**
+   - You should see **2 items** appear (trace and output)
+   - Click the **"Register"** button and wait for the registration to complete
+   - Copy the **IP Asset ID** from the dashboard
+6. **Add Watermark** (Optional):
+   - Paste the IP Asset ID in the input field below (optional - for tracking)
+   - Click "Add Watermark" to embed an invisible watermark containing the IP ID
+7. **Download Protected Asset**: Download your watermarked image
 
 ### Verifying Images
 
@@ -214,7 +256,7 @@ StorySeal implements comprehensive security measures:
 - **Secure Storage**: API keys stored securely (environment variables or localStorage)
 - **Error Handling**: Secure error messages that don't expose sensitive information
 
-See [SECURITY_AUDIT.md](./SECURITY_AUDIT.md) for detailed security documentation.
+For detailed security documentation, see the security audit notes in the codebase. All security measures are implemented following industry best practices.
 
 ## 🚢 Deployment
 
