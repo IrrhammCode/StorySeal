@@ -62,6 +62,12 @@ StorySeal provides comprehensive intellectual property protection for AI-generat
 - **C2PA**: Content Authenticity Initiative support
 - **OpenTelemetry**: Distributed tracing with ABV.dev
 
+### Development & Debugging
+- **Tenderly**: Advanced blockchain debugging and transaction simulation
+  - Virtual TestNet RPC for isolated testing environments
+  - Transaction simulation and detailed error analysis
+  - Wallet funding features for seamless development workflow
+
 ## 🚀 Getting Started
 
 ### Prerequisites
