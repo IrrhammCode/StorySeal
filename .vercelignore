@@ -1,0 +1,122 @@
+# Vercel ignore file - prevents these files from being uploaded to Vercel
+# This helps reduce build time and prevent stack overflow during build tracing
+
+# Dependencies (already installed by Vercel)
+node_modules/
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+
+# Environment files (should be set in Vercel dashboard)
+.env
+.env.local
+.env*.local
+.env*.backup
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+*.cache
+.cache/
+tmp/
+temp/
+
+# Test files
+*.test.js
+*.test.ts
+*.test.tsx
+*.spec.js
+*.spec.ts
+*.spec.tsx
+test-*.ts
+test-*.js
+*-test.ts
+*-test.js
+*-spec.ts
+*-spec.js
+coverage/
+
+# Documentation (not needed for build)
+*.md
+!README.md
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Vercel files
+.vercel/
+
+# Large dependencies that are not needed for build
+node_modules/@swc/
+node_modules/@esbuild/
+node_modules/webpack/
+node_modules/next/dist/compiled/
+node_modules/@opentelemetry/
+node_modules/@abvdev/
+node_modules/@grpc/
+node_modules/@react-three/
+node_modules/three/
+node_modules/tsparticles/
+node_modules/@tsparticles/
+node_modules/react-particles/
+node_modules/@story-protocol/
+node_modules/@contentauth/
+node_modules/@trustnxt/
+node_modules/@walletconnect/
+node_modules/@metamask/
+node_modules/canvas-confetti/
+node_modules/react-confetti/
+node_modules/framer-motion/
+node_modules/lucide-react/
+node_modules/wagmi/
+node_modules/viem/
+node_modules/@tanstack/
+node_modules/sharp/
+node_modules/.cache/
+node_modules/.sharp/
+
+# Test and example files in node_modules
+node_modules/**/test/
+node_modules/**/tests/
+node_modules/**/__tests__/
+node_modules/**/__mocks__/
+node_modules/**/examples/
+node_modules/**/docs/
+node_modules/**/documentation/
+node_modules/**/*.md
+node_modules/**/*.test.*
+node_modules/**/*.spec.*
+
