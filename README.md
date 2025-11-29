@@ -304,9 +304,15 @@ MIT License - see LICENSE file for details
 
 ## 🙏 Acknowledgments
 
-- Story Protocol for the blockchain infrastructure
-- ABV.dev for AI generation capabilities
-- Pinata for IPFS storage
+- **Story Protocol** for the blockchain infrastructure and IP asset management
+- **ABV.dev** for AI generation capabilities and Story Protocol integration
+- **Pinata** for IPFS storage and metadata hosting
+- **Tenderly** for advanced blockchain debugging and development tools
+  - Tenderly provides powerful debugging capabilities for Story Protocol transactions
+  - Enables transaction simulation and detailed error analysis during development
+  - Offers Virtual TestNet RPC for isolated testing environments
+  - Provides wallet funding features for seamless development workflow
+  - Helps developers understand transaction failures with detailed error traces
 - The open-source community for amazing tools and libraries
 
 ---
