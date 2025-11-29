@@ -1250,18 +1250,29 @@ Please switch your wallet to Aeneid Testnet (Chain ID: ${aeneidTestnet.id}) manu
               <ul className="text-xs text-white/90 font-medium space-y-1 list-disc list-inside">
                 <li>Automatic tracing: Prompt & output tracked in ABV.dev dashboard</li>
                 <li>Auto-registration: Register IP assets directly from ABV.dev dashboard</li>
-                <li>No manual steps: Generate → Check dashboard → Register (one click)</li>
-                <li>Story Protocol integration: Built-in connector for seamless IP registration</li>
+                <li>Story Protocol connector: Built-in integration for seamless IP registration</li>
+                <li>Two-step process: Generate in StorySeal → Register in ABV.dev dashboard</li>
               </ul>
-              <a
-                href="https://app.abv.dev/asset-registration"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center space-x-1 text-xs text-blue-300 hover:text-blue-200 hover:underline"
-              >
-                <ExternalLink className="w-3 h-3" />
-                <span>Open ABV.dev Dashboard</span>
-              </a>
+              <div className="mt-3 space-y-2">
+                <a
+                  href="https://app.abv.dev"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center space-x-1 text-xs text-blue-300 hover:text-blue-200 hover:underline mr-3"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  <span>Go to Connectors → Manage Dashboard (Story Protocol)</span>
+                </a>
+                <a
+                  href="https://app.abv.dev"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center space-x-1 text-xs text-blue-300 hover:text-blue-200 hover:underline"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  <span>Go to Connectors → Dashboard Story Protocol</span>
+                </a>
+              </div>
             </div>
           </div>
 
@@ -1349,12 +1360,16 @@ Please switch your wallet to Aeneid Testnet (Chain ID: ${aeneidTestnet.id}) manu
                 <div className="glass-card rounded-lg p-3 mb-2 border border-indigo-400/20">
                   <p className="text-xs font-bold text-white mb-2">💡 ABV.dev Registration Process:</p>
                   <ol className="text-xs text-white/90 font-medium space-y-1 list-decimal list-inside">
-                    <li>Enter your prompt (automatically traced to ABV.dev dashboard)</li>
-                    <li>Generate image using the prompt</li>
-                    <li>Output automatically traced to ABV.dev dashboard</li>
-                    <li>Go to ABV.dev dashboard → Asset Registration page</li>
-                    <li>Find your trace and click "Register" button</li>
-                    <li>Copy IP Asset ID from dashboard and paste it here (optional)</li>
+                    <li>Enter your prompt in the input field below</li>
+                    <li>Go to <a href="https://app.abv.dev" target="_blank" rel="noopener noreferrer" className="underline text-indigo-300 hover:text-indigo-200 font-semibold">ABV.dev</a> and log in to your account</li>
+                    <li>Navigate to <strong>Connectors</strong> in the sidebar</li>
+                    <li>Click <strong>"Manage Dashboard"</strong> for Story Protocol</li>
+                    <li>Activate the <strong>Story Protocol</strong> connector if not already enabled</li>
+                    <li>Return to StorySeal and generate your image using the prompt</li>
+                    <li>After generation, go back to ABV.dev dashboard → <strong>Connectors</strong> → <strong>Dashboard Story Protocol</strong></li>
+                    <li>You should see <strong>2 items</strong> appear (input prompt and output image)</li>
+                    <li>Click the <strong>"Register"</strong> button and wait for the registration to complete</li>
+                    <li>Copy the <strong>IP Asset ID</strong> from the dashboard and paste it in the input field below (optional - for tracking)</li>
                   </ol>
                 </div>
                 <p className="text-xs text-white/90 font-medium">
@@ -1459,8 +1474,9 @@ Please switch your wallet to Aeneid Testnet (Chain ID: ${aeneidTestnet.id}) manu
               {prompt.trim() && (
                 <div className="mt-3 p-2 bg-blue-500/10 glass-card border border-blue-400/30 rounded-lg">
                   <p className="text-xs text-white/90 font-medium">
-                    💡 <strong className="font-bold">Automatic Tracing:</strong> Your prompt will be automatically tracked in ABV.dev dashboard when you generate an image. 
-                    You can register it as IP asset in the <a href="https://app.abv.dev/asset-registration" target="_blank" rel="noopener noreferrer" className="underline text-blue-300 hover:text-blue-200 font-semibold">ABV.dev Asset Registration</a> page.
+                    💡 <strong className="font-bold">Automatic Tracing:</strong> Your prompt will be automatically traced to ABV.dev dashboard when you generate an image. 
+                    <strong className="text-white"> Before generating:</strong> Go to <a href="https://app.abv.dev" target="_blank" rel="noopener noreferrer" className="underline text-blue-300 hover:text-blue-200 font-semibold">ABV.dev</a> → <strong>Connectors</strong> (sidebar) → Click <strong>"Manage Dashboard"</strong> for Story Protocol → Activate the connector. 
+                    After generation, go to <strong>Connectors</strong> → <strong>Dashboard Story Protocol</strong> in ABV.dev to register your asset.
                   </p>
                 </div>
               )}
@@ -1754,7 +1770,7 @@ Please switch your wallet to Aeneid Testnet (Chain ID: ${aeneidTestnet.id}) manu
                   ✅ Auto-Tracing Active
                 </p>
                 <p className="text-xs text-white/90 mb-3">
-                  Your prompt and output are automatically tracked in ABV.dev dashboard. Register via ABV.dev dashboard - no manual registration button needed here!
+                  Your prompt and output are automatically traced to ABV.dev dashboard. Make sure you have activated the Story Protocol connector in ABV.dev before generating images.
                 </p>
                 {traceId && (
                   <div className="mb-3">
@@ -1773,13 +1789,13 @@ Please switch your wallet to Aeneid Testnet (Chain ID: ${aeneidTestnet.id}) manu
                   </div>
                 )}
                 <a
-                  href="https://app.abv.dev/asset-registration"
+                  href="https://app.abv.dev"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  <span>Open ABV.dev Dashboard</span>
+                  <span>Go to Connectors → Dashboard Story Protocol</span>
                 </a>
               </div>
 
@@ -1788,15 +1804,19 @@ Please switch your wallet to Aeneid Testnet (Chain ID: ${aeneidTestnet.id}) manu
                   📋 Steps to Register via ABV.dev Dashboard:
                 </p>
                 <ol className="text-xs text-white/90 list-decimal list-inside space-y-1">
-                  <li>Click "Open ABV.dev Dashboard" button above</li>
-                  <li>Go to "Asset Registration" page</li>
-                  <li>Find your trace (prompt + output are automatically tracked)</li>
-                  <li>Click "Register" button on the trace</li>
-                  <li>Copy the IP Asset ID from dashboard</li>
-                  <li>Paste it below to save it here (optional - for tracking)</li>
+                  <li>Go to <a href="https://app.abv.dev" target="_blank" rel="noopener noreferrer" className="underline text-indigo-300 hover:text-indigo-200 font-semibold">ABV.dev</a> and log in</li>
+                  <li>Navigate to <strong>Connectors</strong> in the sidebar</li>
+                  <li>Click <strong>"Manage Dashboard"</strong> for Story Protocol</li>
+                  <li>Activate the <strong>Story Protocol</strong> connector if not already enabled</li>
+                  <li>Return to StorySeal and generate your image</li>
+                  <li>Go to ABV.dev dashboard → <strong>Connectors</strong> → <strong>Dashboard Story Protocol</strong></li>
+                  <li>You should see <strong>2 items</strong> (input prompt and output image)</li>
+                  <li>Click the <strong>"Register"</strong> button and wait for completion</li>
+                  <li>Copy the <strong>IP Asset ID</strong> from the dashboard</li>
+                  <li>Paste it in the input field below (optional - for tracking in StorySeal)</li>
                 </ol>
                 <p className="text-xs text-white/90 mt-2">
-                  ⚠️ <strong className="text-white">Note:</strong> Do not use manual registration button here. Use ABV.dev dashboard instead for automatic registration.
+                  ⚠️ <strong className="text-white">Important:</strong> Make sure Story Protocol connector is activated in ABV.dev Connectors (via Manage Dashboard) before generating images. Use ABV.dev dashboard for registration, not the manual registration button here.
                 </p>
               </div>
 
@@ -2137,7 +2157,7 @@ Please switch your wallet to Aeneid Testnet (Chain ID: ${aeneidTestnet.id}) manu
                         <p className="text-xs text-white/90">
                           💡 <strong className="text-white">View in dashboard:</strong> 
                           <a href={`https://app.abv.dev/traces/${traceId}`} target="_blank" rel="noopener noreferrer" className="text-indigo-300 hover:text-indigo-200 underline ml-1">View Trace</a> | 
-                          <a href="https://app.abv.dev/asset-registration" target="_blank" rel="noopener noreferrer" className="text-indigo-300 hover:text-indigo-200 underline ml-1">Asset Registration</a>
+                          <a href="https://app.abv.dev" target="_blank" rel="noopener noreferrer" className="text-indigo-300 hover:text-indigo-200 underline ml-1">Connectors → Dashboard Story Protocol</a>
                         </p>
                       )}
                     </div>
