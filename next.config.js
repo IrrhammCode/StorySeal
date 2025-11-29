@@ -60,9 +60,9 @@ const nextConfig = {
     // Direct client call to ABV.dev should be tracked automatically by ABV.dev SDK
     // instrumentationHook: true,
   },
-  // Disable output file tracing to prevent stack overflow
-  // This is a workaround for the micromatch stack overflow issue
-  output: 'standalone',
+  // Disable build tracing to prevent stack overflow in micromatch
+  // This is a workaround for Next.js 14.0.4 build tracing bug
+  outputFileTracing: false,
 }
 
 module.exports = nextConfig

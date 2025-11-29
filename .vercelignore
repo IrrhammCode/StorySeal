@@ -108,15 +108,8 @@ node_modules/sharp/
 node_modules/.cache/
 node_modules/.sharp/
 
-# Test and example files in node_modules
-node_modules/**/test/
-node_modules/**/tests/
-node_modules/**/__tests__/
-node_modules/**/__mocks__/
-node_modules/**/examples/
-node_modules/**/docs/
-node_modules/**/documentation/
-node_modules/**/*.md
+# Test and example files in node_modules (simplified patterns)
+# Note: Using simpler patterns to avoid micromatch stack overflow
 node_modules/**/*.test.*
 node_modules/**/*.spec.*
 
