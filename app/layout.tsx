@@ -16,6 +16,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/storyseal-logo.png" />
+        <link rel="apple-touch-icon" href="/storyseal-logo.png" />
+      </head>
       <body suppressHydrationWarning>
         <WagmiProviderWrapper>
           <ThemeProvider>

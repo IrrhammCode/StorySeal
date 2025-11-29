@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import { getRecentActivities } from '@/lib/activity-tracker'
 import { getAnalytics } from '@/lib/analytics'
 import { getRegistrationStats } from '@/lib/registration-tracker'
+import AnalyticsDashboard from '@/components/AnalyticsDashboard'
 
 export default function DashboardPage() {
   const { address } = useAccount()
@@ -227,153 +228,15 @@ export default function DashboardPage() {
         </Link>
       </motion.div>
 
-      {/* Analytics Section */}
-      {analytics && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="mb-8"
-        >
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 from-indigo-600 to-indigo-700 flex items-center justify-center shadow-lg">
-              <BarChart3 className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white">Analytics</h2>
-              <p className="text-sm text-white/90 font-medium">Performance metrics and insights</p>
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {/* Registration Analytics */}
-            <div className="glass-card rounded-2xl p-6 border border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">Registrations</h3>
-                <CheckCircle className="w-5 h-5 text-indigo-400" />
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-white/90 font-semibold">Success Rate</span>
-                  <span className="text-lg font-bold text-white">
-                    {analytics.registrations.successRate}%
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-white/90 font-semibold">Total Attempts</span>
-                  <span className="text-sm font-bold text-white">
-                    {analytics.registrations.total}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-white/90 font-semibold">Success</span>
-                  <span className="text-sm text-green-300 font-bold">
-                    {analytics.registrations.success}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-white/90 font-semibold">Failed</span>
-                  <span className="text-sm text-red-300 font-bold">
-                    {analytics.registrations.failure}
-                  </span>
-                </div>
-                {analytics.registrations.averageDuration > 0 && (
-                  <div className="flex justify-between items-center pt-2 border-t border-white/10">
-                    <span className="text-sm text-white/90 font-semibold">Avg. Duration</span>
-                    <span className="text-sm font-semibold text-white">
-                      {Math.round(analytics.registrations.averageDuration / 1000)}s
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Detection Analytics */}
-            <div className="glass-card rounded-2xl p-6 border border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 text-white">Detections</h3>
-                <Search className="w-5 h-5 text-coral text-coral" />
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-white/90 font-semibold">Accuracy</span>
-                  <span className="text-lg font-bold text-white">
-                    {analytics.detections.accuracy}%
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-white/90 font-semibold">Total Scans</span>
-                  <span className="text-sm font-bold text-white">
-                    {analytics.detections.total}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-white/90 font-semibold">Watermark</span>
-                  <span className="text-sm text-indigo-300 font-bold">
-                    {analytics.detections.withWatermark}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-white/90 font-semibold">Similarity</span>
-                  <span className="text-sm text-purple-300 font-bold">
-                    {analytics.detections.withSimilarity}
-                  </span>
-                </div>
-                {analytics.detections.violations > 0 && (
-                  <div className="flex justify-between items-center pt-2 border-t border-white/10">
-                    <span className="text-sm text-white/90 font-semibold">Violations</span>
-                    <span className="text-sm font-semibold text-red-400">
-                      {analytics.detections.violations}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Performance Analytics */}
-            <div className="glass-card rounded-2xl p-6 border border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 text-white">Performance</h3>
-                <Zap className="w-5 h-5 text-yellow-400" />
-              </div>
-              <div className="space-y-3">
-                {analytics.performance.averageGenerationTime > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-white/90 font-semibold">Avg. Generation</span>
-                    <span className="text-sm font-bold text-white">
-                      {Math.round(analytics.performance.averageGenerationTime / 1000)}s
-                    </span>
-                  </div>
-                )}
-                {analytics.performance.averageScanTime > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-white/90 font-semibold">Avg. Scan</span>
-                    <span className="text-sm font-bold text-white">
-                      {Math.round(analytics.performance.averageScanTime / 1000)}s
-                    </span>
-                  </div>
-                )}
-                {analytics.performance.averageRegistrationTime > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-white/90 font-semibold">Avg. Registration</span>
-                    <span className="text-sm font-bold text-white">
-                      {Math.round(analytics.performance.averageRegistrationTime / 1000)}s
-                    </span>
-                  </div>
-                )}
-                {analytics.activity.recent > 0 && (
-                  <div className="flex justify-between items-center pt-2 border-t border-white/10">
-                    <span className="text-sm text-white/90 font-semibold">Recent Activity</span>
-                    <span className="text-sm font-bold text-white">
-                      {analytics.activity.recent} (7d)
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
+      {/* Full Analytics Dashboard */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.5 }}
+        className="mb-8"
+      >
+        <AnalyticsDashboard />
+      </motion.div>
 
       {/* Recent Activity Header */}
       <motion.div

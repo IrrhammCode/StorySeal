@@ -39,8 +39,20 @@ export interface C2PAVerificationResult {
 }
 
 /**
+ * Generate a hash from file for storage key
+ */
+async function hashFile(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer()
+  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  return hashHex.substring(0, 16) // Use first 16 chars as key
+}
+
+/**
  * Generate C2PA manifest for image
  * This embeds provenance metadata into the image
+ * Improved version with better storage and error handling
  */
 export async function generateC2PAManifest(params: {
   imageFile: File
@@ -53,11 +65,12 @@ export async function generateC2PAManifest(params: {
     // For client-side, we'll use a simplified approach
     // In production, use @contentauth/c2pa-web for full implementation
     
-    // Create manifest data
-    const manifestData = {
+    // Create manifest data with proper C2PA structure
+    const now = new Date().toISOString()
+    const manifestData: C2PAManifest = {
       claim: {
         claim_generator: params.generator || 'StorySeal',
-        signature: 'storyseal-c2pa-v1',
+        signature: `storyseal-c2pa-v1-${Date.now()}`,
         assertions: [
           {
             label: 'stds.schema-org.CreativeWork',
@@ -65,7 +78,7 @@ export async function generateC2PAManifest(params: {
               '@context': 'https://schema.org',
               '@type': 'ImageObject',
               creator: params.creator,
-              dateCreated: new Date().toISOString(),
+              dateCreated: now,
               generator: params.generator,
               ...(params.ipId && { identifier: params.ipId }),
             },
@@ -73,41 +86,74 @@ export async function generateC2PAManifest(params: {
           {
             label: 'stds.iptc.photo',
             data: {
-              DateCreated: new Date().toISOString(),
+              DateCreated: now,
               Creator: params.creator,
               ...params.metadata,
             },
           },
+          // Add Story Protocol specific assertion
+          ...(params.ipId ? [{
+            label: 'story.protocol.ip',
+            data: {
+              ipId: params.ipId,
+              registeredAt: now,
+              platform: 'StorySeal',
+            },
+          }] : []),
         ],
       },
       signature: {
         issuer: 'StorySeal',
-        time: new Date().toISOString(),
+        time: now,
       },
     }
 
-    // In production, embed this into image using C2PA SDK
-    // For now, we'll store it as metadata that can be verified
-    
     // Convert manifest to JSON string
-    const manifestJson = JSON.stringify(manifestData)
+    const manifestJson = JSON.stringify(manifestData, null, 2)
     
-    // Create a new file with manifest embedded in filename metadata
-    // (This is a simplified approach - in production, use proper C2PA embedding)
+    // Create a new file (in production, this would embed manifest in image)
     const blob = await params.imageFile.arrayBuffer()
     const newFile = new File([blob], params.imageFile.name, {
       type: params.imageFile.type,
       lastModified: Date.now(),
     })
     
-    // Store manifest in a way that can be retrieved later
-    // In production, this would be embedded in the image file itself
+    // Store manifest with file hash as key for better retrieval
     if (typeof window !== 'undefined') {
-      const manifestKey = `c2pa_manifest_${params.imageFile.name}_${Date.now()}`
-      localStorage.setItem(manifestKey, manifestJson)
+      try {
+        const fileHash = await hashFile(params.imageFile)
+        const manifestKey = `c2pa_manifest_${fileHash}`
+        
+        // Store with metadata
+        const manifestStorage = {
+          manifest: manifestData,
+          fileHash,
+          fileName: params.imageFile.name,
+          fileSize: params.imageFile.size,
+          fileType: params.imageFile.type,
+          createdAt: now,
+        }
+        
+        localStorage.setItem(manifestKey, JSON.stringify(manifestStorage))
+        
+        // Also store in index for quick lookup
+        const indexKey = 'c2pa_manifest_index'
+        const index = JSON.parse(localStorage.getItem(indexKey) || '[]')
+        if (!index.includes(fileHash)) {
+          index.push(fileHash)
+          localStorage.setItem(indexKey, JSON.stringify(index))
+        }
+        
+        console.log('[C2PA] Manifest generated and stored:', {
+          fileHash,
+          fileName: params.imageFile.name,
+          ipId: params.ipId,
+        })
+      } catch (storageError) {
+        console.warn('[C2PA] Failed to store manifest:', storageError)
+        // Continue anyway - manifest generation succeeded
+      }
     }
-    
-    console.log('[C2PA] Manifest generated:', manifestData)
     
     return newFile
   } catch (error: any) {
@@ -118,16 +164,10 @@ export async function generateC2PAManifest(params: {
 
 /**
  * Verify C2PA manifest from image
+ * Improved version with better lookup and validation
  */
 export async function verifyC2PAManifest(imageFile: File): Promise<C2PAVerificationResult> {
   try {
-    // Try to extract C2PA manifest from image
-    // In production, use @contentauth/c2pa-web to read embedded manifest
-    
-    // Check if image has C2PA data
-    // For now, we'll check localStorage for stored manifests
-    // In production, extract from image file directly
-    
     if (typeof window === 'undefined') {
       return {
         isValid: false,
@@ -135,25 +175,82 @@ export async function verifyC2PAManifest(imageFile: File): Promise<C2PAVerificat
       }
     }
     
-    // Search for manifest in localStorage
-    const manifestKeys = Object.keys(localStorage).filter(key => key.startsWith('c2pa_manifest_'))
+    // Try to find manifest using file hash (faster lookup)
+    try {
+      const fileHash = await hashFile(imageFile)
+      const manifestKey = `c2pa_manifest_${fileHash}`
+      const storedData = localStorage.getItem(manifestKey)
+      
+      if (storedData) {
+        try {
+          const manifestStorage = JSON.parse(storedData)
+          const manifest = manifestStorage.manifest as C2PAManifest
+          
+          // Validate manifest structure
+          if (manifest && manifest.claim && manifest.signature) {
+            // Additional validation
+            const errors: string[] = []
+            const warnings: string[] = []
+            
+            // Check if manifest is expired (optional - can add expiry logic)
+            // Check signature time is valid
+            const signatureTime = new Date(manifest.signature.time)
+            if (isNaN(signatureTime.getTime())) {
+              warnings.push('Invalid signature timestamp')
+            }
+            
+            // Extract provenance
+            const creativeWork = manifest.claim.assertions.find(
+              a => a.label === 'stds.schema-org.CreativeWork'
+            )?.data
+            
+            return {
+              isValid: errors.length === 0,
+              manifest,
+              errors: errors.length > 0 ? errors : undefined,
+              warnings: warnings.length > 0 ? warnings : undefined,
+              provenance: {
+                created: manifest.signature.time,
+                creator: creativeWork?.creator || manifest.claim.assertions[0]?.data?.creator || 'Unknown',
+                generator: manifest.claim.claim_generator,
+              },
+            }
+          }
+        } catch (parseError: any) {
+          console.warn('[C2PA] Failed to parse stored manifest:', parseError)
+        }
+      }
+    } catch (hashError) {
+      console.warn('[C2PA] Failed to hash file for lookup:', hashError)
+    }
+    
+    // Fallback: Search all manifests (slower but more thorough)
+    const manifestKeys = Object.keys(localStorage).filter(key => key.startsWith('c2pa_manifest_') && !key.endsWith('_index'))
     
     for (const key of manifestKeys) {
       try {
-        const manifestJson = localStorage.getItem(key)
-        if (manifestJson) {
-          const manifest: C2PAManifest = JSON.parse(manifestJson)
+        const storedData = localStorage.getItem(key)
+        if (storedData) {
+          const manifestStorage = JSON.parse(storedData)
+          const manifest = manifestStorage.manifest as C2PAManifest
           
-          // Verify manifest structure
-          if (manifest.claim && manifest.signature) {
-            return {
-              isValid: true,
-              manifest,
-              provenance: {
-                created: manifest.signature.time,
-                creator: manifest.claim.assertions[0]?.data?.creator || 'Unknown',
-                generator: manifest.claim.claim_generator,
-              },
+          // Check if file matches (by name and size as fallback)
+          if (manifestStorage.fileName === imageFile.name && 
+              manifestStorage.fileSize === imageFile.size) {
+            if (manifest && manifest.claim && manifest.signature) {
+              const creativeWork = manifest.claim.assertions.find(
+                a => a.label === 'stds.schema-org.CreativeWork'
+              )?.data
+              
+              return {
+                isValid: true,
+                manifest,
+                provenance: {
+                  created: manifest.signature.time,
+                  creator: creativeWork?.creator || 'Unknown',
+                  generator: manifest.claim.claim_generator,
+                },
+              }
             }
           }
         }
@@ -162,9 +259,7 @@ export async function verifyC2PAManifest(imageFile: File): Promise<C2PAVerificat
       }
     }
     
-    // If no manifest found, try to detect C2PA markers in image
-    // In production, use C2PA SDK to read embedded data
-    
+    // No manifest found
     return {
       isValid: false,
       warnings: ['No C2PA manifest found in image. Image may not have provenance data.'],
@@ -208,6 +303,8 @@ export async function extractC2PAProvenance(imageFile: File): Promise<{
     ipId: creativeWork?.identifier,
   }
 }
+
+
 
 
 

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Shield, 
   Home, 
-  Image, 
+  Image as ImageIcon, 
   Search, 
   Menu, 
   X,
@@ -15,20 +15,18 @@ import {
   Settings
 } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import { ConnectWallet } from '@/components/ConnectWallet'
 import Particles from '@tsparticles/react'
-import { loadSlim } from '@tsparticles/slim'
-import type { Engine } from '@tsparticles/engine'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Create & Register', href: '/dashboard/create', icon: Image },
+  { name: 'Create & Register', href: '/dashboard/create', icon: ImageIcon },
   { name: 'Verify', href: '/dashboard/verify', icon: Search },
   { name: 'Monitor', href: '/dashboard/monitor', icon: Activity },
   { name: 'My IP Assets', href: '/dashboard/assets', icon: FileText },
-  { name: 'Licenses', href: '/dashboard/licenses', icon: Shield },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
 
@@ -55,10 +53,7 @@ export default function DashboardLayout({
     }
   }, [mounted, isConnected, router])
 
-  // Particles initialization
-  const particlesInit = useCallback(async (engine: Engine) => {
-    await loadSlim(engine)
-  }, [])
+  // Particles initialization - handled automatically by @tsparticles/react
 
   // Show loading state during hydration
   if (!mounted) {
@@ -105,7 +100,6 @@ export default function DashboardLayout({
       {mounted && (
         <Particles
           id="tsparticles"
-          init={particlesInit}
           className="absolute inset-0 z-0"
           options={{
             background: {
@@ -161,8 +155,10 @@ export default function DashboardLayout({
                 straight: false,
                 attract: {
                   enable: true,
-                  rotateX: 600,
-                  rotateY: 1200,
+                  rotate: {
+                    x: 600,
+                    y: 1200,
+                  },
                 },
               },
               number: {
@@ -220,8 +216,16 @@ export default function DashboardLayout({
               {/* Logo */}
               <div className="p-6 border-b border-white/10 flex-shrink-0">
                 <Link href="/" className="flex items-center space-x-3 group">
-                  <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-glow-indigo group-hover:scale-110 transition-all duration-300">
-                    <Shield className="w-6 h-6 text-white" />
+                  <div className="w-[72px] h-[72px] rounded-xl flex items-center justify-center shadow-glow-indigo group-hover:scale-110 transition-all duration-300 overflow-hidden relative">
+                    <Image 
+                      src="/storyseal-logo.png" 
+                      alt="StorySeal Logo" 
+                      width={72} 
+                      height={72} 
+                      className="object-contain scale-150 logo-transparent"
+                      style={{ width: 'auto', height: 'auto' }}
+                      priority
+                    />
                   </div>
                   <span className="text-xl font-semibold text-white">StorySeal</span>
                 </Link>

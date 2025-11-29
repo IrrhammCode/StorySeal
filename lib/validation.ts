@@ -29,7 +29,7 @@ export function validatePrompt(prompt: string): ValidationResult {
 }
 
 /**
- * Validate URL
+ * Validate URL - with SSRF protection
  */
 export function validateUrl(url: string): ValidationResult {
   if (!url || url.trim().length === 0) {
@@ -42,16 +42,54 @@ export function validateUrl(url: string): ValidationResult {
   try {
     const urlObj = new URL(url)
     
-    // Check if it's a valid image URL
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']
-    const pathname = urlObj.pathname.toLowerCase()
-    const hasImageExtension = imageExtensions.some(ext => pathname.endsWith(ext))
+    // SSRF Protection: Block private/internal IPs
+    const hostname = urlObj.hostname.toLowerCase()
     
-    // Also check if URL is accessible (basic check)
+    // Block localhost and private IP ranges
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('172.16.') ||
+      hostname.startsWith('172.17.') ||
+      hostname.startsWith('172.18.') ||
+      hostname.startsWith('172.19.') ||
+      hostname.startsWith('172.20.') ||
+      hostname.startsWith('172.21.') ||
+      hostname.startsWith('172.22.') ||
+      hostname.startsWith('172.23.') ||
+      hostname.startsWith('172.24.') ||
+      hostname.startsWith('172.25.') ||
+      hostname.startsWith('172.26.') ||
+      hostname.startsWith('172.27.') ||
+      hostname.startsWith('172.28.') ||
+      hostname.startsWith('172.29.') ||
+      hostname.startsWith('172.30.') ||
+      hostname.startsWith('172.31.') ||
+      hostname === '[::1]' ||
+      hostname.startsWith('169.254.') // Link-local
+    ) {
+      return {
+        valid: false,
+        error: 'URL cannot point to private/internal network',
+      }
+    }
+    
+    // Only allow HTTP and HTTPS
     if (!['http:', 'https:'].includes(urlObj.protocol)) {
       return {
         valid: false,
         error: 'URL must use HTTP or HTTPS protocol',
+      }
+    }
+    
+    // Block file:// protocol
+    if (urlObj.protocol === 'file:') {
+      return {
+        valid: false,
+        error: 'File protocol is not allowed',
       }
     }
     

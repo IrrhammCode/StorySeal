@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import { Shield, Wallet, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useAccount } from 'wagmi'
 import { ConnectWallet } from '@/components/ConnectWallet'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -39,8 +40,16 @@ export default function LoginPage() {
             <ThemeToggle />
           </div>
           <Link href="/" className="inline-flex items-center space-x-3 mb-6">
-            <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center shadow-glow-indigo">
-              <Shield className="w-7 h-7 text-white" />
+            <div className="w-20 h-20 rounded-xl flex items-center justify-center shadow-glow-indigo overflow-hidden relative">
+              <Image 
+                src="/storyseal-logo.png" 
+                alt="StorySeal Logo" 
+                width={80} 
+                height={80} 
+                className="object-contain scale-150 logo-transparent"
+                style={{ width: 'auto', height: 'auto' }}
+                priority
+              />
             </div>
             <span className="text-3xl font-bold text-white">StorySeal</span>
           </Link>

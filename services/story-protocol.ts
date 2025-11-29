@@ -1,10 +1,10 @@
 'use client'
 
 import { StoryClient, StoryConfig } from '@story-protocol/core-sdk'
-import { http, createPublicClient, getAddress, parseAbiItem, Address, keccak256, toBytes, decodeEventLog, decodeErrorResult } from 'viem'
+import { http, createPublicClient, getAddress, parseAbiItem, Address, keccak256, toBytes, decodeEventLog, decodeErrorResult, encodeFunctionData } from 'viem'
 import { STORY_CHAIN_ID } from '@/config/story'
 import { Account } from 'viem'
-import { uploadJSONToIPFS, uploadJSONStringToIPFS, uploadSVGToIPFS } from '@/services/ipfs-service'
+import { uploadJSONToIPFS, uploadSVGToIPFS } from '@/services/ipfs-service'
 
 // Metadata cache untuk avoid duplicate requests
 const metadataCache = new Map<string, { data: any, timestamp: number }>()
@@ -27,6 +27,15 @@ function setCachedMetadata(uri: string, data: any): void {
 const IP_ASSET_REGISTRY_ADDRESS = '0x77319B4031e6eF1250907aa00018B8B1c67a244b' as Address
 const REGISTRATION_WORKFLOWS_ADDRESS = '0xbe39E1C756e921BD25DF86e7AAa31106d1eb0424' as Address
 const PUBLIC_SPG_NFT_CONTRACT = '0xc32A8a0FF3beDDDa58393d022aF433e78739FAbc' as Address
+const LICENSE_REGISTRY_ADDRESS = '0x04fbd8a2e56dd85CFD5500A4A4DfA955B9f1dE6f' as Address
+
+// License Template Addresses (Aeneid Testnet)
+// These are the PIL (Programmable IP License) template addresses
+const LICENSE_TEMPLATES = {
+  nonCommercial: '0x2E896b0b2Fdb7457499B56AAaA4AE55BCB4Cd316' as Address,
+  commercial: '0x2E896b0b2Fdb7457499B56AAaA4AE55BCB4Cd316' as Address, // Same template, different terms
+  commercialRemix: '0x2E896b0b2Fdb7457499B56AAaA4AE55BCB4Cd316' as Address,
+} as const
 
 // ABI for RegistrationWorkflows.mintAndRegisterIp
 // From: https://docs.story.foundation/developers/smart-contracts/register-ip-asset
@@ -165,6 +174,7 @@ export interface IPAsset {
   name?: string
   owner: string
   registeredAt?: string
+  transactionHash?: string
   metadata?: Record<string, any>
 }
 
@@ -187,8 +197,10 @@ const IP_REGISTERED_EVENT = parseAbiItem(
 export class StoryProtocolService {
   private client: StoryClient | null = null
   private publicClient: ReturnType<typeof createPublicClient> | null = null
+  private account: Account | null = null
 
   constructor(account: Account) {
+    this.account = account
     try {
       const rpcUrl = getStoryRpcUrl()
       console.log('[StoryProtocolService] Using RPC URL:', rpcUrl)
@@ -356,10 +368,10 @@ export class StoryProtocolService {
         ipMetadata: {
           // Use ipfs.io gateway (as per official Story Protocol docs)
           // Contract expects ipfs.io gateway format
-          ipMetadataURI: `https://ipfs.io/ipfs/${ipIpfsHash}`,
-          ipMetadataHash: ipHash,
-          nftMetadataURI: `https://ipfs.io/ipfs/${nftIpfsHash}`,
-          nftMetadataHash: nftHash,
+          ipMetadataURI: `https://ipfs.io/ipfs/${ipIpfsHash}` as `0x${string}`,
+          ipMetadataHash: ipHash as `0x${string}`,
+          nftMetadataURI: `https://ipfs.io/ipfs/${nftIpfsHash}` as `0x${string}`,
+          nftMetadataHash: nftHash as `0x${string}`,
         },
       })
       
@@ -368,9 +380,13 @@ export class StoryProtocolService {
       console.log('[registerIPAsset] IP ID:', response.ipId)
       console.log('[registerIPAsset] View on explorer:', `https://aeneid.explorer.story.foundation/ipa/${response.ipId}`)
       
+      if (!response.ipId) {
+        throw new Error('IP Asset registration succeeded but IP ID is missing')
+      }
+      
       return {
-        id: response.ipId,
-                  owner: formattedRecipient,
+        id: response.ipId as string,
+        owner: formattedRecipient,
         name: params.name,
       }
     } catch (error: any) {
@@ -452,53 +468,63 @@ export class StoryProtocolService {
       }
 
       // Step 2: Prepare IP Metadata (following official docs format)
-      // IMPORTANT: Build metadata object with consistent key ordering
-      // Contract will fetch from IPFS and stringify, so we must match exact format
-      const ipMetadata: Record<string, any> = {
+      // IMPORTANT: Add unique identifier to avoid duplicate metadata hash
+      // If same metadata is registered twice, contract will reject it
+      // Use wallet address + high precision timestamp + multiple random strings for maximum uniqueness
+      const walletAddress = params.account.address || 'unknown'
+      const random1 = Math.random().toString(36).substring(2, 9)
+      const random2 = Math.random().toString(36).substring(2, 9)
+      const random3 = Math.random().toString(36).substring(2, 9)
+      const random4 = Math.random().toString(36).substring(2, 9)
+      // Use high precision timestamp + performance.now() for maximum uniqueness
+      const highPrecisionTimestamp = `${Date.now()}-${(performance.now() * 1000).toFixed(0)}`
+      const uniqueId = `storyseal-${walletAddress.slice(-8)}-${highPrecisionTimestamp}-${random1}-${random2}-${random3}-${random4}`
+      const uniqueMetadata = {
+        ...params.metadata,
+        registeredAt: new Date().toISOString(),
+        registrationId: uniqueId,
+        walletAddress: walletAddress, // Add wallet address for extra uniqueness
+        timestamp: highPrecisionTimestamp, // High precision timestamp
+        randomId: `${random1}-${random2}-${random3}-${random4}`, // Extra random component
+        nonce: `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`, // Additional nonce for extra uniqueness
+      }
+      
+      const ipMetadata = {
         title: params.name,
         description: params.description || 'AI-generated artwork with invisible watermark protection',
         image: imageIpfsUri, // Use IPFS URI instead of data URL
         mediaUrl: imageIpfsUri, // Use IPFS URI instead of data URL
         mediaType: imageUrl.includes('svg') ? 'image/svg+xml' : 'image/png',
-      }
-      
-      // Add any additional metadata from params (merge after base fields for consistent ordering)
-      if (params.metadata) {
-        Object.assign(ipMetadata, params.metadata)
+        ...uniqueMetadata,
       }
 
       // Step 3: Prepare NFT Metadata (ERC-721 standard)
-      // Use consistent key ordering: name, description, image
-      const nftMetadata: Record<string, any> = {
+      const nftMetadata = {
         name: params.name,
         description: params.description || 'Ownership NFT for StorySeal IP Asset',
         image: imageIpfsUri, // Use IPFS URI instead of data URL
       }
 
-      // Step 4: Stringify metadata FIRST to ensure exact same format for upload and hash
-      // CRITICAL: Hash must be calculated from the EXACT string that gets uploaded to IPFS
-      // Contract will fetch from IPFS and calculate hash, so format must match 100%
-      // Use JSON.stringify with no replacer and no spaces for compact, deterministic format
-      const ipMetadataString = JSON.stringify(ipMetadata) // Default: compact format, consistent key order
-      const nftMetadataString = JSON.stringify(nftMetadata) // Default: compact format, consistent key order
-      
-      console.log('[registerIPAssetDirectContract] IP metadata JSON string:', ipMetadataString)
-      console.log('[registerIPAssetDirectContract] NFT metadata JSON string:', nftMetadataString)
-
-      // Calculate hashes BEFORE upload to ensure we use exact same strings
-      const ipHash = await sha256Hash(ipMetadataString)
-      const nftHash = await sha256Hash(nftMetadataString)
-      console.log('[registerIPAssetDirectContract] ✅ IP metadata hash calculated (SHA256):', ipHash)
-      console.log('[registerIPAssetDirectContract] ✅ NFT metadata hash calculated (SHA256):', nftHash)
-
-      // Now upload using the exact same stringified JSON
       console.log('[registerIPAssetDirectContract] Uploading IP metadata to IPFS...')
-      const ipIpfsHash = await uploadJSONStringToIPFS(ipMetadataString)
+      const ipIpfsHash = await uploadJSONToIPFS(ipMetadata)
       console.log('[registerIPAssetDirectContract] ✅ IP metadata uploaded to IPFS:', ipIpfsHash)
 
+      // Step 3: Calculate metadata hash (SHA256)
+      // IMPORTANT: Hash must match what contract calculates from IPFS metadata
+      // Contract will fetch metadata from IPFS and calculate hash, so we must use exact same format
+      const ipMetadataString = JSON.stringify(ipMetadata) // No spacing/formatting differences
+      const ipHash = await sha256Hash(ipMetadataString)
+      console.log('[registerIPAssetDirectContract] ✅ IP metadata hash calculated (SHA256):', ipHash)
+      console.log('[registerIPAssetDirectContract] IP metadata JSON:', ipMetadataString)
+
       console.log('[registerIPAssetDirectContract] Uploading NFT metadata to IPFS...')
-      const nftIpfsHash = await uploadJSONStringToIPFS(nftMetadataString)
+      const nftIpfsHash = await uploadJSONToIPFS(nftMetadata)
       console.log('[registerIPAssetDirectContract] ✅ NFT metadata uploaded to IPFS:', nftIpfsHash)
+
+      const nftMetadataString = JSON.stringify(nftMetadata) // No spacing/formatting differences
+      const nftHash = await sha256Hash(nftMetadataString)
+      console.log('[registerIPAssetDirectContract] ✅ NFT metadata hash calculated (SHA256):', nftHash)
+      console.log('[registerIPAssetDirectContract] NFT metadata JSON:', nftMetadataString)
       
       // Skip hash verification to avoid Pinata rate limiting
       // Hash is calculated from the exact JSON we uploaded, so it should match
@@ -521,7 +547,7 @@ export class StoryProtocolService {
       console.log('[registerIPAssetDirectContract] Wallet balance:', balance.toString(), 'wei')
       console.log('[registerIPAssetDirectContract] Wallet balance (ETH/IP):', balanceInEth.toFixed(4))
       
-      if (balance === 0n) {
+      if (balance === BigInt(0)) {
         throw new Error('Wallet balance is zero. Please fund your wallet with IP tokens from the faucet: https://docs.story.foundation/aeneid')
       }
       
@@ -529,47 +555,46 @@ export class StoryProtocolService {
         console.warn('[registerIPAssetDirectContract] ⚠️ Low balance detected. Registration may fail due to insufficient gas.')
       }
       
-      // Use ipfs.io gateway (as per official Story Protocol docs)
-      // Contract expects ipfs.io gateway format for metadata URIs
-      // Wait longer for IPFS propagation to ensure metadata is accessible
-      console.log('[registerIPAssetDirectContract] Using ipfs.io gateway for metadata URIs (as per Story Protocol docs)...')
-      const ipfsGateway = `https://ipfs.io/ipfs/`
-      const pinataGateway = `https://gateway.pinata.cloud/ipfs/` // For verification only
+      // Use Pinata gateway for contract calls (more reliable than ipfs.io)
+      // Pinata gateway is faster and more accessible, reducing transaction failures
+      // Story Protocol contract accepts any HTTP gateway URL, not just ipfs.io
+      console.log('[registerIPAssetDirectContract] Using Pinata gateway for metadata URIs (more reliable)...')
+      const pinataGateway = `https://gateway.pinata.cloud/ipfs/`
+      const ipfsGateway = `https://ipfs.io/ipfs/` // Fallback for verification
       
-      // Use ipfs.io gateway for contract calls (as per official docs)
-      const ipMetadataURI = `${ipfsGateway}${ipIpfsHash}`
-      const nftMetadataURI = `${ipfsGateway}${nftIpfsHash}`
+      // Use Pinata gateway for contract calls (more reliable and accessible)
+      const ipMetadataURI = `${pinataGateway}${ipIpfsHash}`
+      const nftMetadataURI = `${pinataGateway}${nftIpfsHash}`
       
-      // Also prepare Pinata URLs for verification (faster for browser)
-      const ipMetadataURIPinata = `${pinataGateway}${ipIpfsHash}`
-      const nftMetadataURIPinata = `${pinataGateway}${nftIpfsHash}`
+      // Also prepare ipfs.io URLs as fallback for verification
+      const ipMetadataURIIpfs = `${ipfsGateway}${ipIpfsHash}`
+      const nftMetadataURIIpfs = `${ipfsGateway}${nftIpfsHash}`
       
-      console.log('[registerIPAssetDirectContract] IP Metadata URI (ipfs.io - for contract):', ipMetadataURI)
-      console.log('[registerIPAssetDirectContract] NFT Metadata URI (ipfs.io - for contract):', nftMetadataURI)
-      console.log('[registerIPAssetDirectContract] IP Metadata URI (Pinata - for verification):', ipMetadataURIPinata)
-      console.log('[registerIPAssetDirectContract] NFT Metadata URI (Pinata - for verification):', nftMetadataURIPinata)
+      console.log('[registerIPAssetDirectContract] IP Metadata URI (Pinata - for contract):', ipMetadataURI)
+      console.log('[registerIPAssetDirectContract] NFT Metadata URI (Pinata - for contract):', nftMetadataURI)
+      console.log('[registerIPAssetDirectContract] IP Metadata URI (ipfs.io - fallback):', ipMetadataURIIpfs)
+      console.log('[registerIPAssetDirectContract] NFT Metadata URI (ipfs.io - fallback):', nftMetadataURIIpfs)
       
       // Verify metadata accessibility and hash BEFORE contract call
       // This is critical to avoid transaction failures
+      // Since we're using Pinata gateway for contract, verify from Pinata directly
       console.log('[registerIPAssetDirectContract] Verifying metadata accessibility and hash...')
       try {
-        // Wait longer for IPFS propagation (especially for ipfs.io)
-        // ipfs.io needs more time to propagate content from Pinata
-        console.log('[registerIPAssetDirectContract] Waiting 10 seconds for IPFS propagation to ipfs.io...')
-        await new Promise(resolve => setTimeout(resolve, 10000))
+        // Pinata gateway is immediately accessible (no propagation delay needed)
+        // Wait a short time just to ensure upload is complete
+        console.log('[registerIPAssetDirectContract] Waiting 2 seconds for Pinata upload to complete...')
+        await new Promise(resolve => setTimeout(resolve, 2000))
         
-        // Try to fetch and verify IP metadata
-        console.log('[registerIPAssetDirectContract] Fetching IP metadata from gateway to verify hash...')
+        // Try to fetch and verify IP metadata from Pinata (same gateway as contract)
+        console.log('[registerIPAssetDirectContract] Fetching IP metadata from Pinata gateway to verify hash...')
         let fetchedIpMetadata: any = null
         let fetchedIpMetadataString: string = ''
         
-        // Try ipfs.io gateway first (contract will use this), then Pinata as fallback for verification
         try {
           const response = await fetch(ipMetadataURI, {
             method: 'GET',
             headers: { 'Accept': 'application/json' },
-            // Add longer timeout for ipfs.io
-            signal: AbortSignal.timeout(30000), // 30 second timeout for ipfs.io
+            signal: AbortSignal.timeout(15000), // 15 second timeout for Pinata
           })
           
           if (!response.ok) {
@@ -577,32 +602,30 @@ export class StoryProtocolService {
           }
           
           fetchedIpMetadata = await response.json()
-          // Re-stringify to match exact format (contract will do this too)
-          // Use same JSON.stringify() call to ensure format consistency
           fetchedIpMetadataString = JSON.stringify(fetchedIpMetadata)
-          console.log('[registerIPAssetDirectContract] ✅ IP metadata fetched from ipfs.io (contract will use this)')
-          console.log('[registerIPAssetDirectContract] Fetched metadata string (first 200 chars):', fetchedIpMetadataString.substring(0, 200))
-        } catch (ipfsError: any) {
-          console.warn('[registerIPAssetDirectContract] ⚠️ Failed to fetch from ipfs.io, trying Pinata for verification...', ipfsError.message)
+          console.log('[registerIPAssetDirectContract] ✅ IP metadata fetched from Pinata (contract will use this)')
+        } catch (pinataError: any) {
+          console.warn('[registerIPAssetDirectContract] ⚠️ Failed to fetch from Pinata, trying ipfs.io as fallback...', pinataError.message)
           
-          // Try Pinata gateway as fallback for verification only
-          // Note: Contract will still use ipfs.io URI, but we verify hash from Pinata
-          const pinataResponse = await fetch(ipMetadataURIPinata, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(10000),
-          })
-          
-          if (!pinataResponse.ok) {
-            throw new Error(`Pinata gateway also failed: HTTP ${pinataResponse.status}. Metadata may not be accessible yet.`)
+          // Try ipfs.io gateway as fallback (though it may not be accessible yet)
+          try {
+            const ipfsResponse = await fetch(ipMetadataURIIpfs, {
+              method: 'GET',
+              headers: { 'Accept': 'application/json' },
+              signal: AbortSignal.timeout(10000),
+            })
+            
+            if (!ipfsResponse.ok) {
+              throw new Error(`ipfs.io gateway also failed: HTTP ${ipfsResponse.status}`)
+            }
+            
+            fetchedIpMetadata = await ipfsResponse.json()
+            fetchedIpMetadataString = JSON.stringify(fetchedIpMetadata)
+            console.log('[registerIPAssetDirectContract] ✅ IP metadata fetched from ipfs.io (fallback)')
+            console.warn('[registerIPAssetDirectContract] ⚠️ Using ipfs.io as fallback, but contract will use Pinata. This should still work.')
+          } catch (ipfsError: any) {
+            throw new Error(`Both Pinata and ipfs.io gateways failed. Pinata: ${pinataError.message}, ipfs.io: ${ipfsError.message}. Metadata may not be accessible yet.`)
           }
-          
-          fetchedIpMetadata = await pinataResponse.json()
-          // Re-stringify to match exact format (contract will do this too)
-          fetchedIpMetadataString = JSON.stringify(fetchedIpMetadata)
-          console.log('[registerIPAssetDirectContract] ✅ IP metadata fetched from Pinata (for verification only)')
-          console.log('[registerIPAssetDirectContract] Fetched metadata string (first 200 chars):', fetchedIpMetadataString.substring(0, 200))
-          console.warn('[registerIPAssetDirectContract] ⚠️ Contract will use ipfs.io URI, but ipfs.io is not accessible yet. This may cause transaction failure.')
         }
         
         // Verify hash matches
@@ -622,8 +645,8 @@ export class StoryProtocolService {
         
         console.log('[registerIPAssetDirectContract] ✅ IP metadata hash verified!')
         
-        // Verify NFT metadata (similar process)
-        console.log('[registerIPAssetDirectContract] Fetching NFT metadata from gateway to verify hash...')
+        // Verify NFT metadata (similar process - using Pinata gateway)
+        console.log('[registerIPAssetDirectContract] Fetching NFT metadata from Pinata gateway to verify hash...')
         let fetchedNftMetadata: any = null
         let fetchedNftMetadataString: string = ''
         
@@ -631,7 +654,7 @@ export class StoryProtocolService {
           const response = await fetch(nftMetadataURI, {
             method: 'GET',
             headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(30000), // 30 second timeout for ipfs.io
+            signal: AbortSignal.timeout(15000), // 15 second timeout for Pinata
           })
           
           if (!response.ok) {
@@ -640,25 +663,29 @@ export class StoryProtocolService {
           
           fetchedNftMetadata = await response.json()
           fetchedNftMetadataString = JSON.stringify(fetchedNftMetadata)
-          console.log('[registerIPAssetDirectContract] ✅ NFT metadata fetched from ipfs.io (contract will use this)')
-        } catch (ipfsError: any) {
-          console.warn('[registerIPAssetDirectContract] ⚠️ Failed to fetch NFT from ipfs.io, trying Pinata for verification...', ipfsError.message)
+          console.log('[registerIPAssetDirectContract] ✅ NFT metadata fetched from Pinata (contract will use this)')
+        } catch (pinataError: any) {
+          console.warn('[registerIPAssetDirectContract] ⚠️ Failed to fetch from Pinata, trying ipfs.io as fallback...', pinataError.message)
           
-          // Try Pinata gateway as fallback for verification only
-          const pinataResponse = await fetch(nftMetadataURIPinata, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(10000),
-          })
-          
-          if (!pinataResponse.ok) {
-            throw new Error(`Pinata gateway also failed: HTTP ${pinataResponse.status}. Metadata may not be accessible yet.`)
+          // Try ipfs.io gateway as fallback
+          try {
+            const ipfsResponse = await fetch(nftMetadataURIIpfs, {
+              method: 'GET',
+              headers: { 'Accept': 'application/json' },
+              signal: AbortSignal.timeout(10000),
+            })
+            
+            if (!ipfsResponse.ok) {
+              throw new Error(`ipfs.io gateway also failed: HTTP ${ipfsResponse.status}`)
+            }
+            
+            fetchedNftMetadata = await ipfsResponse.json()
+            fetchedNftMetadataString = JSON.stringify(fetchedNftMetadata)
+            console.log('[registerIPAssetDirectContract] ✅ NFT metadata fetched from ipfs.io (fallback)')
+            console.warn('[registerIPAssetDirectContract] ⚠️ Using ipfs.io as fallback, but contract will use Pinata. This should still work.')
+          } catch (ipfsError: any) {
+            throw new Error(`Both Pinata and ipfs.io gateways failed. Pinata: ${pinataError.message}, ipfs.io: ${ipfsError.message}. Metadata may not be accessible yet.`)
           }
-          
-          fetchedNftMetadata = await pinataResponse.json()
-          fetchedNftMetadataString = JSON.stringify(fetchedNftMetadata)
-          console.log('[registerIPAssetDirectContract] ✅ NFT metadata fetched from Pinata (for verification only)')
-          console.warn('[registerIPAssetDirectContract] ⚠️ Contract will use ipfs.io URI, but ipfs.io is not accessible yet. This may cause transaction failure.')
         }
         
         const fetchedNftHash = await sha256Hash(fetchedNftMetadataString)
@@ -715,7 +742,44 @@ export class StoryProtocolService {
         throw new Error(`SPG NFT contract verification failed: ${contractError.message}. Please check contract address: ${PUBLIC_SPG_NFT_CONTRACT}`)
       }
       
-      // Step 6: Call smart contract directly
+      // Step 6: Final verification - ensure metadata is accessible from contract's perspective
+      // Contract will fetch metadata during execution, so we need to ensure it's accessible
+      console.log('[registerIPAssetDirectContract] Performing final metadata accessibility check...')
+      try {
+        // Test both gateways to ensure at least one is accessible
+        const testGateways = [
+          ipMetadataURI, // Pinata (primary)
+          ipMetadataURI.replace('gateway.pinata.cloud', 'ipfs.io'), // IPFS.io (fallback)
+        ]
+        
+        let accessibleGateway = null
+        for (const gateway of testGateways) {
+          try {
+            const testResponse = await fetch(gateway, {
+              method: 'HEAD', // Just check if accessible, don't download
+              signal: AbortSignal.timeout(10000), // 10 second timeout
+            })
+            if (testResponse.ok) {
+              accessibleGateway = gateway
+              console.log(`[registerIPAssetDirectContract] ✅ Metadata accessible via: ${gateway}`)
+              break
+            }
+          } catch (gatewayError) {
+            console.warn(`[registerIPAssetDirectContract] ⚠️ Gateway not accessible: ${gateway}`, gatewayError)
+          }
+        }
+        
+        if (!accessibleGateway) {
+          console.warn('[registerIPAssetDirectContract] ⚠️ WARNING: Metadata may not be accessible from contract perspective')
+          console.warn('[registerIPAssetDirectContract] 💡 This might cause transaction failure. Waiting 10 seconds for IPFS propagation...')
+          await new Promise(resolve => setTimeout(resolve, 10000))
+        }
+      } catch (finalCheckError) {
+        console.warn('[registerIPAssetDirectContract] ⚠️ Final accessibility check failed:', finalCheckError)
+        console.warn('[registerIPAssetDirectContract] 💡 Proceeding anyway, but transaction may fail if metadata is not accessible')
+      }
+      
+      // Step 7: Call smart contract directly
       console.log('[registerIPAssetDirectContract] Calling RegistrationWorkflows.mintAndRegisterIp...')
       console.log('[registerIPAssetDirectContract] Contract:', REGISTRATION_WORKFLOWS_ADDRESS)
       console.log('[registerIPAssetDirectContract] SPG NFT Contract:', PUBLIC_SPG_NFT_CONTRACT)
@@ -742,9 +806,6 @@ export class StoryProtocolService {
           },
           true, // allowDuplicates
         ],
-        // Increase gas limit to avoid out-of-gas errors
-        // Story Protocol registration can be gas-intensive due to IPFS fetching and validation
-        gas: 5000000n, // 5M gas (should be enough for registration)
       }
       
       // Always pass account for signing
@@ -761,6 +822,41 @@ export class StoryProtocolService {
         })
         console.log('[registerIPAssetDirectContract] ✅ Contract simulation passed')
         console.log('[registerIPAssetDirectContract] Simulation result:', simulationResult)
+        
+        // Also try a direct call to see if we can get error data
+        // This helps when simulation passes but actual transaction fails
+        console.log('[registerIPAssetDirectContract] Performing additional call to check for execution errors...')
+        try {
+          const callResult = await publicClient.call({
+            to: REGISTRATION_WORKFLOWS_ADDRESS,
+            data: encodeFunctionData({
+              abi: REGISTRATION_WORKFLOWS_ABI,
+              functionName: 'mintAndRegisterIp',
+              args: contractCallParams.args,
+            }),
+            account: params.account,
+          } as any)
+          console.log('[registerIPAssetDirectContract] ✅ Call simulation also passed')
+        } catch (callError: any) {
+          // If call fails, log the error - this might reveal why transaction fails
+          console.warn('[registerIPAssetDirectContract] ⚠️ Call simulation failed (but simulateContract passed):', callError)
+          if (callError.data || callError.cause?.data) {
+            console.warn('[registerIPAssetDirectContract] Call error data:', callError.data || callError.cause?.data)
+            // Try to decode
+            try {
+              const callErrorData = callError.data || callError.cause?.data
+              if (callErrorData && typeof callErrorData === 'string' && callErrorData.startsWith('0x')) {
+                const decoded = decodeErrorResult({
+                  data: callErrorData as `0x${string}`,
+                  abi: FULL_REGISTRATION_ABI,
+                })
+                console.error('[registerIPAssetDirectContract] ⚠️ Call error decoded:', decoded)
+              }
+            } catch (decodeErr) {
+              console.warn('[registerIPAssetDirectContract] Could not decode call error:', decodeErr)
+            }
+          }
+        }
       } catch (simError: any) {
         console.error('[registerIPAssetDirectContract] ⚠️ Contract simulation failed:', simError)
         console.error('[registerIPAssetDirectContract] Simulation error details:', {
@@ -844,6 +940,24 @@ export class StoryProtocolService {
             }
           }
           
+          // Add gas estimation explicitly to catch gas-related issues
+          console.log('[registerIPAssetDirectContract] Estimating gas...')
+          try {
+            const gasEstimate = await publicClient.estimateGas({
+              ...contractCallParams,
+              account: params.account,
+            })
+            console.log('[registerIPAssetDirectContract] Gas estimate:', gasEstimate.toString())
+            
+            // Add 20% buffer to gas estimate
+            const gasWithBuffer = (gasEstimate * BigInt(120)) / BigInt(100)
+            contractCallParams.gas = gasWithBuffer
+            console.log('[registerIPAssetDirectContract] Gas with 20% buffer:', gasWithBuffer.toString())
+          } catch (gasError: any) {
+            console.warn('[registerIPAssetDirectContract] ⚠️ Gas estimation failed:', gasError)
+            // Continue anyway - walletClient will estimate gas automatically
+          }
+          
           hash = await walletClient.writeContract(contractCallParams)
           console.log(`[registerIPAssetDirectContract] ✅ Transaction sent! Hash: ${hash}`)
           break // Success
@@ -859,13 +973,276 @@ export class StoryProtocolService {
             throw new Error('Insufficient funds for transaction. Please fund your wallet with IP tokens.')
           }
           
-          if (attempt === MAX_TRANSACTION_RETRIES) {
-            console.error(`[registerIPAssetDirectContract] ❌ Transaction failed after ${MAX_TRANSACTION_RETRIES} attempts`)
-            throw txError
+          // Try to decode contract error for better error message
+          let decodedError: string | null = null
+          let errorDataHex: string | null = null
+          let errorSignature: string | null = null
+          
+          try {
+            // Deep dive into error structure to find data
+            // viem ContractFunctionRevertedError may have data in nested cause
+            let errorData: any = null
+            
+            // Try multiple paths to find error data
+            if (txError.data) {
+              errorData = txError.data
+            } else if (txError.cause?.data) {
+              errorData = txError.cause.data
+            } else if (txError.cause?.cause?.data) {
+              errorData = txError.cause.cause.data
+            } else if (txError.cause?.cause?.cause?.data) {
+              errorData = txError.cause.cause.cause.data
+            }
+            
+            // Also check for error in cause.name === 'ContractFunctionRevertedError'
+            if (!errorData && txError.cause) {
+              const findErrorData = (obj: any, depth = 0): any => {
+                if (depth > 5) return null // Prevent infinite recursion
+                if (obj?.data && typeof obj.data === 'string' && obj.data.startsWith('0x')) {
+                  return obj.data
+                }
+                if (obj?.cause) return findErrorData(obj.cause, depth + 1)
+                if (obj?.error?.data) return obj.error.data
+                return null
+              }
+              errorData = findErrorData(txError.cause)
+            }
+            
+            // Check if error has data that can be decoded
+            if (errorData) {
+              errorDataHex = errorData
+              // Try to decode using ABI
+              if (typeof errorDataHex === 'string' && errorDataHex.startsWith('0x')) {
+                errorSignature = errorDataHex.slice(0, 10) // First 4 bytes (8 hex chars + 0x)
+                console.log('[registerIPAssetDirectContract] Attempting to decode contract error...')
+                console.log('[registerIPAssetDirectContract] Error data (hex):', errorDataHex)
+                console.log('[registerIPAssetDirectContract] Error signature:', errorSignature)
+                
+                // Try to decode using viem's decodeErrorResult
+                try {
+                  const decoded = decodeErrorResult({
+                    data: errorDataHex as `0x${string}`,
+                    abi: FULL_REGISTRATION_ABI,
+                  })
+                  console.log('[registerIPAssetDirectContract] ✅ Decoded error:', decoded)
+                  decodedError = `${decoded.errorName}${decoded.args ? ': ' + JSON.stringify(decoded.args) : ''}`
+                  
+                  // Handle specific decoded errors
+                  if (decoded.errorName === 'MetadataHashMismatch' && decoded.args) {
+                    const args = decoded.args as any
+                    decodedError = `Metadata hash mismatch! Expected: ${args.expected}, Actual: ${args.actual}`
+                  } else if (decoded.errorName === 'MetadataNotAccessible' && decoded.args) {
+                    const args = decoded.args as any
+                    decodedError = `Metadata not accessible: ${args.uri || 'unknown URI'}`
+                  } else if (decoded.errorName === 'InvalidSPGContract' && decoded.args) {
+                    const args = decoded.args as any
+                    decodedError = `Invalid SPG NFT contract: ${args.contract || 'unknown'}`
+                  }
+                } catch (decodeErr: any) {
+                  console.warn('[registerIPAssetDirectContract] Failed to decode with ABI:', decodeErr)
+                  // Check for common error signatures
+                  if (errorSignature === '0x3bdad64c') {
+                    decodedError = 'TransactionFailed - Contract validation failed (likely metadata hash mismatch or IPFS accessibility issue)'
+                  } else if (errorSignature === '0x08c379a0') {
+                    // Standard Error(string) signature
+                    try {
+                      // Try to decode as Error(string)
+                      const errorString = Buffer.from(errorDataHex.slice(10), 'hex').toString('utf-8').replace(/\0/g, '')
+                      if (errorString.length > 0) {
+                        decodedError = `Contract error: ${errorString}`
+                      }
+                    } catch (e) {
+                      decodedError = `Contract error (signature: ${errorSignature})`
+                    }
+                  } else {
+                    decodedError = `Contract error (signature: ${errorSignature})`
+                  }
+                }
+              }
+            }
+            
+            // Check error shortMessage or reason for more details
+            if (!decodedError) {
+              if (txError.shortMessage) {
+                decodedError = txError.shortMessage
+              } else if (txError.reason) {
+                decodedError = txError.reason
+              } else if (txError.cause?.reason) {
+                decodedError = txError.cause.reason
+              } else if (txError.message) {
+                decodedError = txError.message
+              }
+            }
+            
+            // Log full error for debugging - including deep structure
+            console.error('[registerIPAssetDirectContract] Full error object:', {
+              message: txError.message,
+              shortMessage: txError.shortMessage,
+              reason: txError.reason,
+              cause: txError.cause,
+              data: errorDataHex,
+              signature: errorSignature,
+              decodedError,
+            })
+            
+            // Deep log the entire error structure to find hidden data
+            try {
+              const errorKeys = Object.keys(txError)
+              console.error('[registerIPAssetDirectContract] Error keys:', errorKeys)
+              console.error('[registerIPAssetDirectContract] Error cause type:', txError.cause?.constructor?.name)
+              console.error('[registerIPAssetDirectContract] Error cause keys:', txError.cause ? Object.keys(txError.cause) : 'none')
+              
+              // Try to extract all possible error data locations
+              const allErrorData: any[] = []
+              if (txError.data) allErrorData.push({ source: 'txError.data', data: txError.data })
+              if (txError.cause?.data) allErrorData.push({ source: 'txError.cause.data', data: txError.cause.data })
+              if (txError.cause?.cause?.data) allErrorData.push({ source: 'txError.cause.cause.data', data: txError.cause.cause.data })
+              if ((txError.cause as any)?.error?.data) allErrorData.push({ source: 'txError.cause.error.data', data: (txError.cause as any).error.data })
+              
+              console.error('[registerIPAssetDirectContract] All error data found:', allErrorData)
+              
+              // Try to stringify safely
+              try {
+                const safeError = {
+                  name: txError.name,
+                  message: txError.message,
+                  shortMessage: txError.shortMessage,
+                  reason: txError.reason,
+                  code: (txError as any).code,
+                  data: txError.data,
+                  cause: txError.cause ? {
+                    name: txError.cause.name,
+                    message: txError.cause.message,
+                    data: (txError.cause as any).data,
+                    reason: (txError.cause as any).reason,
+                  } : null,
+                }
+                console.error('[registerIPAssetDirectContract] Safe error structure:', JSON.stringify(safeError, null, 2))
+              } catch (stringifyErr) {
+                console.warn('[registerIPAssetDirectContract] Could not stringify error:', stringifyErr)
+              }
+            } catch (logErr) {
+              console.warn('[registerIPAssetDirectContract] Error logging failed:', logErr)
+            }
+            
+            // Try to extract error from cause recursively
+            const extractErrorInfo = (obj: any, depth = 0): any => {
+              if (depth > 10) return null
+              if (!obj) return null
+              
+              const info: any = {}
+              if (obj.data) info.data = obj.data
+              if (obj.message) info.message = obj.message
+              if (obj.shortMessage) info.shortMessage = obj.shortMessage
+              if (obj.reason) info.reason = obj.reason
+              if (obj.name) info.name = obj.name
+              if (obj.code) info.code = obj.code
+              
+              if (obj.cause) {
+                const causeInfo = extractErrorInfo(obj.cause, depth + 1)
+                if (causeInfo) info.cause = causeInfo
+              }
+              
+              return Object.keys(info).length > 0 ? info : null
+            }
+            
+            const deepErrorInfo = extractErrorInfo(txError)
+            if (deepErrorInfo) {
+              console.error('[registerIPAssetDirectContract] Extracted error info:', deepErrorInfo)
+              // If we found data in deep structure, try to use it
+              if (deepErrorInfo.data && !errorDataHex) {
+                errorDataHex = deepErrorInfo.data
+                if (typeof errorDataHex === 'string' && errorDataHex.startsWith('0x')) {
+                  errorSignature = errorDataHex.slice(0, 10)
+                  console.log('[registerIPAssetDirectContract] ✅ Found error data in deep structure:', errorDataHex)
+                }
+              }
+            }
+          } catch (decodeError) {
+            console.warn('[registerIPAssetDirectContract] Failed to decode error:', decodeError)
+            decodedError = txError.message || 'Unknown error'
           }
           
-          console.warn(`[registerIPAssetDirectContract] ⚠️ Transaction attempt ${attempt} failed:`, txError.message)
+          // Check for specific error types
+          const errorMessage = (decodedError || txError.message || '').toLowerCase()
+          
+          // Duplicate registration error - check multiple patterns
+          const isDuplicate = errorMessage.includes('duplicate') || 
+              errorMessage.includes('already registered') ||
+              errorMessage.includes('metadata hash already exists') ||
+              errorMessage.includes('hash already registered')
+          
+          if (isDuplicate) {
+            console.warn('[registerIPAssetDirectContract] ⚠️ Duplicate registration detected')
+            console.warn('[registerIPAssetDirectContract] 💡 This metadata hash has already been registered')
+            throw new Error('This IP Asset metadata has already been registered. Each registration must have unique metadata. Please generate a new image with a different prompt or modify the metadata.')
+          }
+          
+          // IPFS accessibility error
+          const isIpfsError = errorMessage.includes('ipfs') || 
+              errorMessage.includes('metadata not accessible') ||
+              errorMessage.includes('failed to fetch')
+          
+          if (isIpfsError && attempt < MAX_TRANSACTION_RETRIES) {
+            console.warn('[registerIPAssetDirectContract] ⚠️ IPFS accessibility issue detected')
+            console.warn('[registerIPAssetDirectContract] 💡 Waiting longer for IPFS propagation...')
+            // Wait longer for IPFS propagation
+            await new Promise(resolve => setTimeout(resolve, 10000 * attempt)) // Progressive delay
+          }
+          
+          if (attempt === MAX_TRANSACTION_RETRIES) {
+            console.error(`[registerIPAssetDirectContract] ❌ Transaction failed after ${MAX_TRANSACTION_RETRIES} attempts`)
+            console.error(`[registerIPAssetDirectContract] Last error signature: ${errorSignature || 'unknown'}`)
+            console.error(`[registerIPAssetDirectContract] Last error data: ${errorDataHex || 'none'}`)
+            console.error(`[registerIPAssetDirectContract] Decoded error: ${decodedError || 'none'}`)
+            
+            // Provide more helpful error message based on decoded error
+            let finalErrorMsg = decodedError || txError.message || 'Transaction failed'
+            
+            // If we have a decoded error, use it
+            if (decodedError && !decodedError.includes('Transaction failed') && !decodedError.includes('reverted')) {
+              finalErrorMsg = `Contract error: ${decodedError}`
+            } else {
+              // Generic error message with troubleshooting
+              finalErrorMsg = `Transaction failed after ${MAX_TRANSACTION_RETRIES} attempts. This may be because:\n\n` +
+                `1. **Metadata hash mismatch**: Contract calculated different hash than expected\n` +
+                `   - Expected hash: ${ipHash}\n` +
+                `   - Check metadata format matches exactly\n\n` +
+                `2. **IPFS metadata not accessible**: Contract cannot fetch metadata during execution\n` +
+                `   - IP Metadata URI: ${ipMetadataURI}\n` +
+                `   - NFT Metadata URI: ${nftMetadataURI}\n` +
+                `   - Try accessing these URLs manually to verify accessibility\n\n` +
+                `3. **Duplicate metadata hash**: Same hash already registered (even with allowDuplicates=true)\n` +
+                `   - Registration ID: ${ipMetadata.registrationId}\n` +
+                `   - Try generating a new image with different prompt\n\n` +
+                `4. **Contract validation failed**: Invalid parameters or contract state\n` +
+                `   - SPG NFT Contract: ${PUBLIC_SPG_NFT_CONTRACT}\n` +
+                `   - Recipient: ${formattedRecipient}\n` +
+                `   - Error signature: ${errorSignature || 'unknown'}\n\n` +
+                `5. **Network/RPC issues**: Temporary network problems\n\n` +
+                `💡 TROUBLESHOOTING:\n` +
+                `- Wait 60-120 seconds and try again (IPFS propagation can take time)\n` +
+                `- Generate a completely new image with a different prompt\n` +
+                `- Verify metadata is accessible: ${ipMetadataURI}\n` +
+                `- Check wallet balance (need IP tokens for gas)\n` +
+                `- Try using Tenderly RPC for better error debugging`
+            }
+            
+            throw new Error(finalErrorMsg)
+          }
+          
+          console.warn(`[registerIPAssetDirectContract] ⚠️ Transaction attempt ${attempt} failed:`, decodedError || txError.message)
+          if (decodedError && decodedError !== txError.message) {
+            console.warn(`[registerIPAssetDirectContract] Decoded error: ${decodedError}`)
+          }
           console.warn(`[registerIPAssetDirectContract] 💡 Retrying... (${attempt + 1}/${MAX_TRANSACTION_RETRIES})`)
+          
+          // Progressive delay between retries (longer for IPFS issues)
+          const delay = isIpfsError ? 10000 * attempt : 5000 * attempt
+          if (attempt < MAX_TRANSACTION_RETRIES) {
+            console.log(`[registerIPAssetDirectContract] Waiting ${delay}ms before retry...`)
+            await new Promise(resolve => setTimeout(resolve, delay))
+          }
         }
       }
       
@@ -920,7 +1297,7 @@ export class StoryProtocolService {
         try {
           const AENEID_CHAIN_ID = 1315
           const latestBlock = await publicClient.getBlockNumber()
-          const fromBlock = receipt.blockNumber > 1000n ? receipt.blockNumber - 1000n : 0n
+          const fromBlock = receipt.blockNumber > BigInt(1000) ? receipt.blockNumber - BigInt(1000) : BigInt(0)
           
           const logs = await publicClient.getLogs({
             address: IP_ASSET_REGISTRY_ADDRESS,
@@ -934,8 +1311,8 @@ export class StoryProtocolService {
           // Find event from our transaction
           for (const eventLog of logs) {
             if (eventLog.transactionHash === hash) {
-              ipId = eventLog.args.ipId
-              tokenId = eventLog.args.tokenId
+              ipId = eventLog.args.ipId || null
+              tokenId = eventLog.args.tokenId || null
               console.log('[registerIPAssetDirectContract] ✅ IPRegistered event found via direct query!')
               console.log('[registerIPAssetDirectContract] IP ID:', ipId)
               console.log('[registerIPAssetDirectContract] Token ID:', tokenId?.toString())
@@ -1116,7 +1493,7 @@ export class StoryProtocolService {
       
       try {
       // Check if using Tenderly RPC
-      const rpcUrl = this.getRpcUrl()
+      const rpcUrl = getStoryRpcUrl()
       const isTenderly = rpcUrl?.includes('tenderly.co')
       
       if (!isTenderly) {
@@ -1166,59 +1543,6 @@ export class StoryProtocolService {
     try {
       console.log('[getIPIdFromTransaction] Getting receipt for:', txHash)
       const receipt = await this.publicClient.getTransactionReceipt({
-              hash: txHash as `0x${string}`,
-      })
-
-      if (!receipt || receipt.status !== 'success') {
-        console.warn('[getIPIdFromTransaction] Transaction not successful or not found')
-        return null
-      }
-
-      console.log('[getIPIdFromTransaction] ✅ Transaction receipt found, checking logs...')
-            
-            // Extract IP ID from transaction logs
-            if (receipt.logs && receipt.logs.length > 0) {
-              for (const log of receipt.logs) {
-                try {
-                  const decoded = this.publicClient.decodeEventLog({
-                    abi: [IP_REGISTERED_EVENT],
-                    data: log.data,
-                    topics: log.topics,
-                  })
-                  
-                  if (decoded.eventName === 'IPRegistered') {
-                    const ipId = decoded.args.ipId
-                    if (ipId) {
-                console.log('[getIPIdFromTransaction] ✅ Found IP ID:', ipId)
-                return ipId as string
-                    }
-                  }
-                } catch (decodeError) {
-                  // Not the event we're looking for, continue
-                }
-              }
-            }
-
-      console.warn('[getIPIdFromTransaction] No IPRegistered event found in transaction logs')
-      return null
-    } catch (error: any) {
-      console.error('[getIPIdFromTransaction] Error:', error)
-      throw new Error(`Failed to get IP ID from transaction: ${error.message}`)
-    }
-  }
-
-  /**
-   * Extract IP ID from successful transaction hash
-   * Useful when transaction succeeded in Tenderly but SDK didn't return IP ID
-   */
-  async getIPIdFromTransaction(txHash: string): Promise<string | null> {
-    if (!this.publicClient) {
-      throw new Error('Public client not initialized')
-    }
-
-    try {
-      console.log('[getIPIdFromTransaction] Getting receipt for:', txHash)
-      const receipt = await this.publicClient.getTransactionReceipt({
         hash: txHash as `0x${string}`,
       })
 
@@ -1233,7 +1557,7 @@ export class StoryProtocolService {
       if (receipt.logs && receipt.logs.length > 0) {
         for (const log of receipt.logs) {
           try {
-            const decoded = this.publicClient.decodeEventLog({
+            const decoded = decodeEventLog({
               abi: [IP_REGISTERED_EVENT],
               data: log.data,
               topics: log.topics,
@@ -1381,7 +1705,7 @@ export class StoryProtocolService {
       ] as const
 
       // Get user's NFT balance
-      let balance = 0n
+      let balance = BigInt(0)
       try {
         balance = await this.publicClient.readContract({
           address: PUBLIC_SPG_NFT_CONTRACT,
@@ -1391,7 +1715,7 @@ export class StoryProtocolService {
         })
       } catch (error) {
         console.warn('[getIPAssetsByOwner] Failed to get balance from SPG contract:', error)
-        balance = 0n
+        balance = BigInt(0)
       }
 
       const ownedAssets: IPAsset[] = []
@@ -1399,9 +1723,9 @@ export class StoryProtocolService {
       // Get all token IDs owned by user
       // IMPORTANT: tokenOfOwnerByIndex is NOT available in SPG NFT contract
       // We use Transfer events instead to find tokens owned by user
-      if (balance > 0n) {
+      if (balance > BigInt(0)) {
         // Get total supply to know how many tokens exist
-        let totalSupply = 0n
+        let totalSupply = BigInt(0)
         try {
           totalSupply = await this.publicClient.readContract({
             address: PUBLIC_SPG_NFT_CONTRACT,
@@ -1411,7 +1735,7 @@ export class StoryProtocolService {
         } catch (error) {
           console.warn('[getIPAssetsByOwner] Failed to get totalSupply, trying alternative method:', error)
           // If totalSupply fails, try querying Transfer events instead
-          totalSupply = 0n
+          totalSupply = BigInt(0)
         }
 
         // Query Transfer events to find tokens transferred to this user
@@ -1425,7 +1749,7 @@ export class StoryProtocolService {
         try {
           const currentBlock = await this.publicClient.getBlockNumber()
           // Query last 50000 blocks (should cover all recent registrations)
-          fromBlock = currentBlock > 50000n ? currentBlock - 50000n : 0n
+          fromBlock = currentBlock > BigInt(50000) ? currentBlock - BigInt(50000) : BigInt(0)
           toBlock = currentBlock
         } catch (error) {
           console.warn('[getIPAssetsByOwner] Could not get current block:', error)
@@ -1490,7 +1814,7 @@ export class StoryProtocolService {
           }
           
           // Find tokens currently owned by user
-          for (const [tokenIdStr, owner] of tokenOwnership.entries()) {
+          for (const [tokenIdStr, owner] of Array.from(tokenOwnership.entries())) {
             if (owner.toLowerCase() === ownerAddr.toLowerCase()) {
               tokenIds.push(BigInt(tokenIdStr))
             }
@@ -1501,6 +1825,7 @@ export class StoryProtocolService {
             const verifiedTokenIds: bigint[] = []
             const verifyPromises = tokenIds.map(async (tokenId) => {
               try {
+                if (!this.publicClient) return null
                 const currentOwner = await this.publicClient.readContract({
                   address: PUBLIC_SPG_NFT_CONTRACT,
                   abi: ERC721_FULL_ABI,
@@ -1532,14 +1857,14 @@ export class StoryProtocolService {
           console.warn('[getIPAssetsByOwner] Failed to query Transfer events, falling back to checking all tokens:', error)
           
           // Fallback: Check ownership for recent tokens (last 1000 tokens)
-          if (totalSupply > 0n) {
-            const maxTokensToCheck = totalSupply > 1000n ? 1000n : totalSupply
+          if (totalSupply > BigInt(0)) {
+            const maxTokensToCheck = totalSupply > BigInt(1000) ? BigInt(1000) : totalSupply
             console.log(`[getIPAssetsByOwner] Checking ownership for last ${maxTokensToCheck.toString()} tokens...`)
             
-            const startToken = totalSupply - maxTokensToCheck + 1n
+            const startToken = totalSupply - maxTokensToCheck + BigInt(1)
             const batchSize = 50
-            for (let tokenId = startToken; tokenId <= totalSupply; tokenId += batchSize) {
-              const endToken = tokenId + batchSize > totalSupply ? totalSupply : tokenId + batchSize - 1n
+            for (let tokenId = startToken; tokenId <= totalSupply; tokenId += BigInt(batchSize)) {
+              const endToken = tokenId + BigInt(batchSize) > totalSupply ? totalSupply : tokenId + BigInt(batchSize) - BigInt(1)
               const batchPromises = []
               
               for (let t = tokenId; t <= endToken; t++) {
@@ -1574,7 +1899,7 @@ export class StoryProtocolService {
 
         // Calculate IP ID for each token using IPAssetRegistry.ipId function
         // This is the official way to get IP ID from token
-        const AENEID_CHAIN_ID = 1315n
+        const AENEID_CHAIN_ID = BigInt(1315)
         const IP_ASSET_REGISTRY_ABI_FOR_IPID = [
           {
             name: 'ipId',
@@ -1645,7 +1970,7 @@ export class StoryProtocolService {
         let toBlock: 'latest' | bigint = 'latest'
         try {
           const currentBlock = await this.publicClient.getBlockNumber()
-          fromBlock = currentBlock > 20000n ? currentBlock - 20000n : 0n
+          fromBlock = currentBlock > BigInt(20000) ? currentBlock - BigInt(20000) : BigInt(0)
           toBlock = currentBlock
         } catch (error) {
           // Silently skip if can't get block number
@@ -1697,10 +2022,13 @@ export class StoryProtocolService {
         
         for (let i = 0; i < decodedEvents.length; i += batchSize) {
           const batch = decodedEvents.slice(i, i + batchSize)
+          if (!this.publicClient) {
+            throw new Error('Public client not initialized')
+          }
           const ownershipChecks = await Promise.allSettled(
             batch.map(async (event) => {
               try {
-                const nftOwner = await this.publicClient.readContract({
+                const nftOwner = await this.publicClient!.readContract({
                   address: PUBLIC_SPG_NFT_CONTRACT,
                   abi: ERC721_FULL_ABI,
                   functionName: 'ownerOf',
@@ -1758,7 +2086,7 @@ export class StoryProtocolService {
         console.log(`[getIPAssetsByOwner] ✅ Found ${finalAssets.length} unique IP assets for owner ${ownerAddress}`)
       } else {
         // Only log warning if user has NFTs but no IP assets found
-        if (balance > 0n) {
+        if (balance > BigInt(0)) {
           console.warn(`[getIPAssetsByOwner] ⚠️ User owns ${balance.toString()} NFTs but no IP assets found. Use manual input in Create & Register page.`)
         }
       }
@@ -1821,67 +2149,395 @@ export class StoryProtocolService {
 
   /**
    * Create license terms for an IP Asset
+   * Following Story Protocol SDK documentation for license management
    */
-  async createLicense(ipId: string, licenseType: 'commercial' | 'nonCommercial' | 'commercialRemix' | 'ccBy'): Promise<{
+  async createLicense(
+    ipId: string, 
+    licenseType: 'commercial' | 'nonCommercial' | 'commercialRemix',
+    account?: Account, // Optional account parameter - if provided, re-initialize client
+    walletClient?: any // Optional walletClient for direct contract calls
+  ): Promise<{
     licenseTermsId: bigint
     txHash?: string
+    attachTxHash?: string
   }> {
+    // CRITICAL: Re-initialize StoryClient with the account if provided
+    // This ensures the client uses the correct account for signing transactions
+    // The "unknown account" error happens when client was initialized with a different account
+    if (account) {
+      console.log('[createLicense] Re-initializing StoryClient with provided account...')
+      console.log('[createLicense] Account:', account.address)
+      
+      try {
+        const rpcUrl = getStoryRpcUrl()
+        const config: StoryConfig = {
+          account, // Use provided account
+          transport: http(rpcUrl),
+          chainId: STORY_CHAIN_ID,
+        }
+        // Create new client instance with the correct account
+        this.client = StoryClient.newClient(config)
+        console.log('[createLicense] ✅ StoryClient re-initialized with account:', account.address)
+      } catch (initError: any) {
+        console.error('[createLicense] Failed to re-initialize StoryClient:', initError)
+        throw new Error(`Failed to initialize Story Protocol client with account: ${initError.message}`)
+      }
+    }
+
     if (!this.client) {
       throw new Error('Story Protocol client not initialized')
     }
 
+    // Validate and normalize IP ID format
+    // Note: Using lowercase is OK for internal use, SDK will handle checksumming if needed
+    const normalizedIpId = ipId.trim().toLowerCase()
+    if (!normalizedIpId.startsWith('0x') || normalizedIpId.length !== 42) {
+      throw new Error(`Invalid IP Asset ID format: ${ipId}. Must be a valid Ethereum address (0x followed by 40 hex characters).`)
+    }
+
+    console.log('[createLicense] Creating license:', {
+      ipId: normalizedIpId,
+      licenseType,
+    })
+
     try {
       let response
       
+      // Register license terms based on type
+      // Following Story Protocol PIL (Programmable IP License) templates
       switch (licenseType) {
         case 'commercial':
           // Register commercial use license
-          response = await this.client.license.registerCommercialUsePIL({
-            defaultMintingFee: BigInt(0),
-            currency: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-          })
+          // IMPORTANT: Commercial use PIL requires a valid ERC20 currency token address (not zero address)
+          // For Aeneid testnet, we need to use a valid token address
+          // Common approach: Use a wrapped native token or a testnet ERC20 token
+          console.log('[createLicense] Registering commercial use license...')
+          console.log('[createLicense] Note: Commercial use PIL requires valid currency token address')
+          
+          // For Aeneid testnet, we'll try to use a wrapped native token if available
+          // If not available, we'll provide a clear error message
+          // Note: You may need to deploy or use an existing ERC20 token on testnet
+          try {
+            // Try with zero address first (will fail, but we catch it)
+            response = await this.client.license.registerCommercialUsePIL({
+              defaultMintingFee: BigInt(0),
+              currency: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+            })
+          } catch (currencyError: any) {
+            // Check if error is about currency token
+            if (currencyError.message?.includes('currency') || 
+                currencyError.message?.includes('Royalty policy') ||
+                currencyError.message?.includes('requires currency token')) {
+              throw new Error(
+                'Commercial use license requires a valid ERC20 currency token address (not zero address). ' +
+                'For free licenses without currency requirements, please use:\n' +
+                '- "Non-Commercial Social Remixing" (free, no currency needed)\n\n' +
+                'To use Commercial Use license, you need to provide a valid ERC20 token address on Aeneid testnet.'
+              )
+            }
+            throw currencyError
+          }
           break
         case 'nonCommercial':
           // Register non-commercial social remixing license
+          console.log('[createLicense] Registering non-commercial social remixing license...')
           response = await this.client.license.registerNonComSocialRemixingPIL()
           break
         case 'commercialRemix':
           // Register commercial remix license (requires fee configuration)
-          response = await this.client.license.registerCommercialRemixPIL({
-            defaultMintingFee: BigInt(0), // Set appropriate fee
-            currency: '0x0000000000000000000000000000000000000000' as `0x${string}`, // Native token
-            commercialRevShare: 100, // 100% revenue share
-          })
-          break
-        case 'ccBy':
-          // Register Creative Commons Attribution license
-          response = await this.client.license.registerCreativeCommonsAttributionPIL({
-            currency: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-          })
+          // IMPORTANT: Commercial remix PIL also requires a valid ERC20 currency token address
+          console.log('[createLicense] Registering commercial remix license...')
+          console.log('[createLicense] Note: Commercial remix PIL requires valid currency token address')
+          
+          try {
+            response = await this.client.license.registerCommercialRemixPIL({
+              defaultMintingFee: BigInt(0), // Set appropriate fee
+              currency: '0x0000000000000000000000000000000000000000' as `0x${string}`, // Native token
+              commercialRevShare: 100, // 100% revenue share
+            })
+          } catch (currencyError: any) {
+            // Check if error is about currency token
+            if (currencyError.message?.includes('currency') || 
+                currencyError.message?.includes('Royalty policy') ||
+                currencyError.message?.includes('requires currency token')) {
+              throw new Error(
+                'Commercial remix license requires a valid ERC20 currency token address (not zero address). ' +
+                'For free licenses without currency requirements, please use:\n' +
+                '- "Non-Commercial Social Remixing" (free, no currency needed)\n\n' +
+                'To use Commercial Remix license, you need to provide a valid ERC20 token address on Aeneid testnet.'
+              )
+            }
+            throw currencyError
+          }
           break
         default:
-          throw new Error('Invalid license type')
+          throw new Error(`Invalid license type: ${licenseType}`)
+      }
+
+      // Validate response
+      if (!response || !response.licenseTermsId) {
+        throw new Error('Failed to create license: No license terms ID returned from registration')
+      }
+
+      console.log('[createLicense] License terms registered:', {
+        licenseTermsId: response.licenseTermsId.toString(),
+        txHash: response.txHash,
+        fullResponse: response, // Log full response to see if licenseTemplate is included
+      })
+      
+      // Try to get license template from SDK if available
+      // SDK might have a method to get license template address from license terms ID
+      let licenseTemplateFromSDK: Address | null = null
+      try {
+        // Check if response includes licenseTemplate
+        if ((response as any).licenseTemplate) {
+          licenseTemplateFromSDK = (response as any).licenseTemplate as Address
+          console.log('[createLicense] ✅ License template from SDK response:', licenseTemplateFromSDK)
+        } else {
+          console.log('[createLicense] ⚠️ License template not in SDK response, will use mapping')
+        }
+      } catch (error) {
+        console.warn('[createLicense] Could not extract license template from response:', error)
+      }
+
+      // CRITICAL: Re-initialize client again before attach to ensure account is correct
+      // The SDK may cache account state, so we need a fresh client instance
+      // IMPORTANT: Use the SAME account that was used for registerLicenseTerms
+      if (!account) {
+        throw new Error('Account is required for attaching license terms. Please ensure wallet is connected.')
+      }
+
+      console.log('[createLicense] Re-initializing client again before attach...')
+      console.log('[createLicense] Account details:', {
+        address: account.address,
+        type: account.type,
+      })
+      
+      try {
+        const rpcUrl = getStoryRpcUrl()
+        
+        // CRITICAL: Use the exact same account object that was used for registerLicenseTerms
+        // Don't create a new account object - use the one passed in
+        // This ensures SDK recognizes the account
+        const config: StoryConfig = {
+          account: account, // Use the exact same account object
+          transport: http(rpcUrl),
+          chainId: STORY_CHAIN_ID,
+        }
+        
+        // Create completely new client instance with the same account
+        // This ensures SDK has fresh state with the correct account
+        this.client = StoryClient.newClient(config)
+        console.log('[createLicense] ✅ Client re-initialized before attach with account:', account.address)
+        
+        // Verify client was created successfully
+        if (!this.client) {
+          throw new Error('Failed to create StoryClient instance')
+        }
+        
+        // Small delay to ensure SDK internal state is ready
+        // Sometimes SDK needs a moment to initialize account state
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+      } catch (reinitError: any) {
+        console.error('[createLicense] Failed to re-initialize before attach:', reinitError)
+        throw new Error(`Failed to re-initialize StoryClient before attach: ${reinitError.message || 'Unknown error'}`)
       }
 
       // Attach license terms to IP Asset
-      if (response.licenseTermsId) {
-        await this.client.license.attachLicenseTerms({
-          ipId: ipId as `0x${string}`,
-          licenseTermsId: response.licenseTermsId,
-        })
-      }
-
-      if (!response.licenseTermsId) {
-        throw new Error('Failed to create license: No license terms ID returned')
+      // CRITICAL: Use direct contract call if walletClient is provided
+      // SDK's attachLicenseTerms doesn't work with wallet extension accounts (json-rpc type)
+      console.log('[createLicense] Attaching license terms to IP Asset...')
+      let attachResponse: { txHash: string } | undefined
+      
+      if (walletClient) {
+        // Use direct contract call (same approach as registerIPAssetDirectContract)
+        console.log('[createLicense] Using direct contract call for attachLicenseTerms (walletClient provided)')
+        try {
+          // IMPORTANT: Get license template address
+          // For non-commercial, the template is usually the PIL template address
+          // We need to use the correct template address for the license type
+          let licenseTemplate: Address
+          
+          // Use license template from SDK response if available
+          if (licenseTemplateFromSDK) {
+            licenseTemplate = licenseTemplateFromSDK
+            console.log('[createLicense] Using license template from SDK response:', licenseTemplate)
+          } else {
+            // Fallback: use mapping
+            // Note: All PIL templates use the same address on Aeneid testnet
+            // The difference is in the license terms ID, not the template address
+            licenseTemplate = LICENSE_TEMPLATES[licenseType] || LICENSE_TEMPLATES.nonCommercial
+            console.log('[createLicense] Using license template from mapping:', licenseTemplate)
+            console.log('[createLicense] License type:', licenseType)
+            console.log('[createLicense] License terms ID:', response.licenseTermsId.toString())
+          }
+          
+          // ABI for attachLicenseTerms function
+          const LICENSE_REGISTRY_ABI = [
+            {
+              name: 'attachLicenseTerms',
+              type: 'function',
+              stateMutability: 'nonpayable',
+              inputs: [
+                { name: 'ipId', type: 'address' },
+                { name: 'licenseTemplate', type: 'address' },
+                { name: 'licenseTermsId', type: 'uint256' },
+              ],
+              outputs: [],
+            },
+            {
+              name: 'hasAttachedLicenseTerms',
+              type: 'function',
+              stateMutability: 'view',
+              inputs: [
+                { name: 'ipId', type: 'address' },
+                { name: 'licenseTemplate', type: 'address' },
+                { name: 'licenseTermsId', type: 'uint256' },
+              ],
+              outputs: [{ name: '', type: 'bool' }],
+            },
+          ] as const
+          
+          // Check if license terms already attached (to avoid duplicate error)
+          try {
+            const alreadyAttached = await this.publicClient?.readContract({
+              address: LICENSE_REGISTRY_ADDRESS,
+              abi: LICENSE_REGISTRY_ABI,
+              functionName: 'hasAttachedLicenseTerms',
+              args: [
+                normalizedIpId as `0x${string}`,
+                licenseTemplate,
+                response.licenseTermsId,
+              ],
+            })
+            
+            if (alreadyAttached) {
+              console.log('[createLicense] ⚠️ License terms already attached to this IP Asset')
+              throw new Error('License terms already attached to this IP Asset. You may need to use a different license type or check existing licenses.')
+            }
+          } catch (checkError: any) {
+            // If check fails, continue anyway (might be a view function issue)
+            console.warn('[createLicense] Could not check if license already attached:', checkError.message)
+          }
+          
+          // Simulate transaction first to catch errors early
+          try {
+            await this.publicClient?.simulateContract({
+              address: LICENSE_REGISTRY_ADDRESS,
+              abi: LICENSE_REGISTRY_ABI,
+              functionName: 'attachLicenseTerms',
+              args: [
+                normalizedIpId as `0x${string}`,
+                licenseTemplate,
+                response.licenseTermsId,
+              ],
+              account: account,
+            })
+            console.log('[createLicense] ✅ Transaction simulation passed')
+          } catch (simError: any) {
+            console.error('[createLicense] Transaction simulation failed:', simError)
+            let errorMsg = 'Transaction simulation failed'
+            if (simError.message?.includes('already attached') || simError.message?.includes('duplicate')) {
+              errorMsg = 'License terms already attached to this IP Asset. You may need to use a different license type or check existing licenses.'
+            } else if (simError.message?.includes('not authorized') || simError.message?.includes('unauthorized')) {
+              errorMsg = 'You are not authorized to attach license terms to this IP Asset. Please ensure you own the IP Asset.'
+            } else if (simError.message?.includes('not found') || simError.message?.includes('does not exist')) {
+              errorMsg = 'IP Asset or license terms not found. Please verify the IP Asset ID and license terms ID are correct.'
+            } else {
+              errorMsg = `Transaction simulation failed: ${simError.message || 'Unknown error'}`
+            }
+            throw new Error(errorMsg)
+          }
+          
+          const attachTxHash = await walletClient.writeContract({
+            address: LICENSE_REGISTRY_ADDRESS,
+            abi: LICENSE_REGISTRY_ABI,
+            functionName: 'attachLicenseTerms',
+            args: [
+              normalizedIpId as `0x${string}`,
+              licenseTemplate,
+              response.licenseTermsId,
+            ],
+          })
+          
+          console.log('[createLicense] ✅ Direct contract call sent. Transaction hash:', attachTxHash)
+          
+          // Wait for transaction confirmation
+          const receipt = await this.publicClient?.waitForTransactionReceipt({ hash: attachTxHash })
+          console.log('[createLicense] ✅ Transaction confirmed:', receipt?.transactionHash)
+          
+          attachResponse = { txHash: attachTxHash }
+        } catch (directCallError: any) {
+          console.error('[createLicense] Direct contract call failed:', directCallError)
+          
+          // Provide more specific error messages
+          let errorMsg = directCallError.message || 'Unknown error'
+          if (errorMsg.includes('already attached') || errorMsg.includes('duplicate')) {
+            errorMsg = 'License terms already attached to this IP Asset. You may need to use a different license type or check existing licenses.'
+          } else if (errorMsg.includes('not authorized') || errorMsg.includes('unauthorized')) {
+            errorMsg = 'You are not authorized to attach license terms to this IP Asset. Please ensure you own the IP Asset.'
+          } else if (errorMsg.includes('not found') || errorMsg.includes('does not exist')) {
+            errorMsg = 'IP Asset or license terms not found. Please verify the IP Asset ID and license terms ID are correct.'
+          } else if (errorMsg.includes('Transaction failed') || errorMsg.includes('revert')) {
+            errorMsg = 'Transaction failed. This may be because:\n1. License terms already attached to this IP Asset\n2. You do not own this IP Asset\n3. License template address is incorrect\n\nPlease check existing licenses or try a different IP Asset.'
+          }
+          
+          throw new Error(`Failed to attach license terms: ${errorMsg}`)
+        }
+      } else {
+        // Fallback to SDK method (may fail with wallet extension accounts)
+        try {
+          const sdkResponse = await this.client.license.attachLicenseTerms({
+            ipId: normalizedIpId as `0x${string}`,
+            licenseTermsId: response.licenseTermsId,
+          })
+          attachResponse = sdkResponse.txHash ? { txHash: sdkResponse.txHash as string } : undefined
+          console.log('[createLicense] License terms attached via SDK:', {
+            txHash: attachResponse?.txHash,
+          })
+        } catch (attachError: any) {
+          console.error('[createLicense] Failed to attach license terms via SDK:', attachError)
+          
+          // Provide specific error messages for attachment failures
+          let attachErrorMessage = 'Failed to attach license terms to IP Asset'
+          if (attachError.message) {
+            attachErrorMessage = attachError.message
+          } else if (attachError.cause?.message) {
+            attachErrorMessage = attachError.cause.message
+          }
+          
+          // Check for common attachment errors
+          if (attachErrorMessage.includes('already attached') || attachErrorMessage.includes('duplicate')) {
+            throw new Error('License terms already attached to this IP Asset. You may need to use a different license type or check existing licenses.')
+          } else if (attachErrorMessage.includes('not authorized') || attachErrorMessage.includes('unauthorized')) {
+            throw new Error('You are not authorized to attach license terms to this IP Asset. Please ensure you own the IP Asset.')
+          } else if (attachErrorMessage.includes('not found') || attachErrorMessage.includes('does not exist')) {
+            throw new Error('IP Asset not found. Please verify the IP Asset ID is correct.')
+          } else if (attachErrorMessage.includes('unknown account') || attachErrorMessage.includes('Missing or invalid parameters')) {
+            throw new Error('Account error: SDK cannot attach license terms with wallet extension accounts. Please ensure walletClient is passed to createLicense method.')
+          }
+          
+          throw new Error(`Failed to attach license terms: ${attachErrorMessage}`)
+        }
       }
 
       return {
         licenseTermsId: response.licenseTermsId,
         txHash: response.txHash,
+        attachTxHash: attachResponse?.txHash,
       }
-    } catch (error) {
-      console.error('Failed to create license:', error)
-      throw error
+    } catch (error: any) {
+      console.error('[createLicense] Failed to create license:', error)
+      
+      // Provide more specific error messages
+      if (error.message) {
+        throw new Error(error.message)
+      }
+      if (error.cause?.message) {
+        throw new Error(error.cause.message)
+      }
+      throw new Error(`Failed to create license: ${error.toString()}`)
     }
   }
 }

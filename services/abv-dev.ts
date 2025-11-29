@@ -22,11 +22,14 @@ export interface ABVGenerationResponse {
   svgData: SVGGenerationResponse
   svgUrl: string // Data URL of the SVG
   ipId?: string // If auto-registered with Story Protocol
+  traceId?: string | null // ABV.dev trace ID for linking
   metadata?: {
     prompt: string
     provider: string
     model: string
     generatedAt: string
+    traceId?: string | null
+    abvTraceUrl?: string | null
   }
 }
 
@@ -55,10 +58,21 @@ export class ABVDevService {
       const provider = params.provider || 'openai'
       const model = params.model || 'gpt-4'
 
-      // Use Next.js API route as proxy to avoid CORS issues
-      // Send API key from service if available (from localStorage settings)
-      const apiKey = this.apiKey || (typeof window !== 'undefined' ? localStorage.getItem('abv_api_key') : null)
-      const baseUrl = this.baseUrl || (typeof window !== 'undefined' ? localStorage.getItem('abv_api_url') : null) || 'https://app.abv.dev'
+      // ALWAYS read from localStorage first (Settings page takes priority)
+      // This ensures API key from Settings is always used, even if service was created before Settings was updated
+      const apiKey = (typeof window !== 'undefined' ? localStorage.getItem('abv_api_key') : null) 
+        || this.apiKey 
+        || process.env.NEXT_PUBLIC_ABV_API_KEY
+        || null
+      
+      const baseUrl = (typeof window !== 'undefined' ? localStorage.getItem('abv_api_url') : null)
+        || this.baseUrl 
+        || process.env.NEXT_PUBLIC_ABV_API_URL 
+        || 'https://app.abv.dev'
+      
+      if (!apiKey) {
+        throw new Error('ABV.dev API key is required. Please set it in Settings page (Dashboard → Settings → ABV.dev API Key).')
+      }
       
       // Use simple route that matches test script exactly
       const response = await fetch('/api/create-image-simple', {
@@ -103,8 +117,16 @@ export class ABVDevService {
    */
   async queryTraceForIPId(traceId: string): Promise<string | null> {
     try {
-      const apiKey = this.apiKey || (typeof window !== 'undefined' ? localStorage.getItem('abv_api_key') : null)
-      const baseUrl = this.baseUrl || (typeof window !== 'undefined' ? localStorage.getItem('abv_api_url') : null) || 'https://app.abv.dev'
+      // ALWAYS read from localStorage first (Settings page takes priority)
+      const apiKey = (typeof window !== 'undefined' ? localStorage.getItem('abv_api_key') : null)
+        || this.apiKey 
+        || process.env.NEXT_PUBLIC_ABV_API_KEY
+        || null
+      
+      const baseUrl = (typeof window !== 'undefined' ? localStorage.getItem('abv_api_url') : null)
+        || this.baseUrl 
+        || process.env.NEXT_PUBLIC_ABV_API_URL 
+        || 'https://app.abv.dev'
       
       if (!apiKey) {
         console.warn('[ABV.dev] No API key available for trace query')
@@ -160,10 +182,20 @@ export class ABVDevService {
       const provider = params.provider || 'openai'
       const model = params.model || 'gpt-4'
 
-      // Use Next.js API route as proxy to avoid CORS issues
-      // Send API key from service if available (from localStorage settings)
-      const apiKey = this.apiKey || (typeof window !== 'undefined' ? localStorage.getItem('abv_api_key') : null)
-      const baseUrl = this.baseUrl || (typeof window !== 'undefined' ? localStorage.getItem('abv_api_url') : null) || 'https://app.abv.dev'
+      // ALWAYS read from localStorage first (Settings page takes priority)
+      const apiKey = (typeof window !== 'undefined' ? localStorage.getItem('abv_api_key') : null)
+        || this.apiKey 
+        || process.env.NEXT_PUBLIC_ABV_API_KEY
+        || null
+      
+      const baseUrl = (typeof window !== 'undefined' ? localStorage.getItem('abv_api_url') : null)
+        || this.baseUrl 
+        || process.env.NEXT_PUBLIC_ABV_API_URL 
+        || 'https://app.abv.dev'
+      
+      if (!apiKey) {
+        throw new Error('ABV.dev API key is required. Please set it in Settings page (Dashboard → Settings → ABV.dev API Key).')
+      }
       
       // Use simple route that matches test script exactly
       const response = await fetch('/api/create-image-simple', {

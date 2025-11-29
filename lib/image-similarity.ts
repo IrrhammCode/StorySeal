@@ -22,19 +22,24 @@ export async function detectImageSimilarity(
     const img1 = await loadImage(image1)
     const img2 = await loadImage(image2)
 
-    // Calculate perceptual hash (simplified)
+    // Calculate dHash (more accurate)
     const hash1 = await calculatePerceptualHash(img1)
     const hash2 = await calculatePerceptualHash(img2)
 
     // Calculate hamming distance
     const distance = hammingDistance(hash1, hash2)
-    const maxDistance = hash1.length * 8 // Max possible distance
+    const maxDistance = hash1.length // For dHash, max distance is hash length
     const score = 1 - distance / maxDistance
+
+    // Improved thresholds based on dHash characteristics
+    // dHash is more accurate, so we can use tighter thresholds
+    const isSimilar = score > 0.85 // Higher threshold for dHash
+    const confidence = score > 0.95 ? 'high' : score > 0.85 ? 'medium' : 'low'
 
     return {
       score,
-      isSimilar: score > 0.7, // Threshold for similarity
-      confidence: score > 0.9 ? 'high' : score > 0.7 ? 'medium' : 'low',
+      isSimilar,
+      confidence,
     }
   } catch (error) {
     console.error('Similarity detection error:', error)
@@ -71,15 +76,61 @@ function loadImage(source: File | string): Promise<HTMLImageElement> {
 }
 
 /**
- * Calculate perceptual hash (simplified version)
- * In production, use more sophisticated algorithms like pHash, dHash, or ML models
+ * Calculate dHash (Difference Hash) - more accurate than simple brightness comparison
+ * dHash compares adjacent pixels horizontally, making it more robust to minor changes
+ * Algorithm: Resize to 9x8, convert to grayscale, compare adjacent pixels
  */
 async function calculatePerceptualHash(img: HTMLImageElement): Promise<string> {
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Failed to get canvas context')
 
-  // Resize to small size for hash calculation
+  // Resize to 9x8 for dHash (9 width for 8 comparisons)
+  const width = 9
+  const height = 8
+  canvas.width = width
+  canvas.height = height
+
+  ctx.drawImage(img, 0, 0, width, height)
+  const imageData = ctx.getImageData(0, 0, width, height)
+  const pixels = imageData.data
+
+  // Convert to grayscale and store in 2D array
+  const grayscale: number[][] = []
+  for (let y = 0; y < height; y++) {
+    grayscale[y] = []
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4
+      const r = pixels[idx]
+      const g = pixels[idx + 1]
+      const b = pixels[idx + 2]
+      // Convert to grayscale using luminance formula
+      const gray = 0.299 * r + 0.587 * g + 0.114 * b
+      grayscale[y][x] = gray
+    }
+  }
+
+  // Calculate dHash: compare each pixel with its right neighbor
+  let hash = ''
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width - 1; x++) {
+      // Compare current pixel with right neighbor
+      hash += grayscale[y][x] < grayscale[y][x + 1] ? '1' : '0'
+    }
+  }
+
+  return hash
+}
+
+/**
+ * Calculate average hash (aHash) as fallback
+ * Uses average brightness comparison
+ */
+async function calculateAverageHash(img: HTMLImageElement): Promise<string> {
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Failed to get canvas context')
+
   const size = 8
   canvas.width = size
   canvas.height = size
@@ -121,7 +172,8 @@ function hammingDistance(hash1: string, hash2: string): number {
 
 /**
  * Check if image might be a violation (similar to registered IP)
- * This would compare against database of registered IP assets
+ * Compares against database of registered IP assets using improved similarity detection
+ * Uses batch processing for better performance
  */
 export async function checkForViolations(
   image: File | string,
@@ -129,20 +181,32 @@ export async function checkForViolations(
 ): Promise<Array<{ ipId: string; similarity: SimilarityResult }>> {
   const results: Array<{ ipId: string; similarity: SimilarityResult }> = []
 
-  for (const registeredIP of registeredIPs) {
-    try {
-      const similarity = await detectImageSimilarity(image, registeredIP.imageUrl)
-      if (similarity.isSimilar) {
-        results.push({
-          ipId: registeredIP.ipId,
-          similarity,
-        })
+  // Process in batches to avoid overwhelming the browser
+  const batchSize = 5
+  for (let i = 0; i < registeredIPs.length; i += batchSize) {
+    const batch = registeredIPs.slice(i, i + batchSize)
+    
+    const batchPromises = batch.map(async (registeredIP) => {
+      try {
+        const similarity = await detectImageSimilarity(image, registeredIP.imageUrl)
+        if (similarity.isSimilar) {
+          return {
+            ipId: registeredIP.ipId,
+            similarity,
+          }
+        }
+        return null
+      } catch (error) {
+        console.error(`Failed to compare with IP ${registeredIP.ipId}:`, error)
+        return null
       }
-    } catch (error) {
-      console.error(`Failed to compare with IP ${registeredIP.ipId}:`, error)
-    }
+    })
+
+    const batchResults = await Promise.all(batchPromises)
+    results.push(...batchResults.filter((r): r is { ipId: string; similarity: SimilarityResult } => r !== null))
   }
 
+  // Sort by similarity score (highest first)
   return results.sort((a, b) => b.similarity.score - a.similarity.score)
 }
 

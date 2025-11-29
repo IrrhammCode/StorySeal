@@ -39,8 +39,6 @@ interface VerificationResult {
     created?: string
     generator?: string
   }
-    hasViolations: boolean
-  }
 }
 
 export default function VerifyPage() {
@@ -85,16 +83,30 @@ export default function VerifyPage() {
     try {
       // Step 1: Extract watermark from image
       setStatus('analyzing')
+      console.log('[Verify] Starting watermark extraction from file:', {
+        name: selectedFile.name,
+        type: selectedFile.type,
+        size: selectedFile.size
+      })
+      
       const ipId = await extractWatermarkFromImage(selectedFile)
+      
+      console.log('[Verify] Watermark extraction result:', {
+        ipId,
+        found: !!ipId
+      })
 
       if (!ipId) {
         // No watermark found
+        console.warn('[Verify] No watermark found in image')
         setResult({
           hasWatermark: false,
         })
         setStatus('not_found')
         return
       }
+      
+      console.log('[Verify] ✅ Watermark found! IP ID:', ipId)
 
       if (!storyService) {
         throw new Error('Story Protocol service not available. Please connect your wallet.')
@@ -424,6 +436,7 @@ export default function VerifyPage() {
                   </div>
                 )}
 
+
                 {/* Metadata */}
                 {result.metadata && (
                   <div className="bg-white glass rounded-lg p-4">
@@ -498,6 +511,29 @@ export default function VerifyPage() {
               <p className="text-sm text-yellow-700 dark:text-yellow-400 mb-4">
                 This image does not contain a StorySeal watermark. It may not have been registered on Story Protocol, or the watermark may have been removed.
               </p>
+
+              {/* Protect Content Section */}
+              <div className="mb-4 p-4 glass-card rounded-lg border border-indigo-400/30">
+                <div className="flex items-center space-x-2 mb-3">
+                  <Shield className="w-4 h-4 text-indigo-400" />
+                  <p className="text-xs font-medium text-white/70 uppercase">Protect This Content</p>
+                </div>
+                <div className="space-y-2 text-sm text-white/70 mb-4">
+                  <p className="font-medium text-white">Register on Story Protocol:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Claim ownership on-chain</li>
+                    <li>Set licensing terms and enable remix with royalties</li>
+                    <li>Track usage and detect violations automatically</li>
+                  </ul>
+                </div>
+                <a
+                  href="/dashboard/create"
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors text-sm font-medium"
+                >
+                  <Shield className="w-4 h-4" />
+                  <span>Register to Story Protocol</span>
+                </a>
+              </div>
 
               <button
                 onClick={handleReset}

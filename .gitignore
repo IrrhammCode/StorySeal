@@ -56,7 +56,6 @@ lerna-debug.log*
 
 # API keys and secrets
 *.secret
-*.key
 secrets/
 .secrets/
 config/secrets.json
@@ -64,7 +63,7 @@ config/keys.json
 
 # vercel
 .vercel
-.vercel.json
+# Note: vercel.json should be committed (deployment config)
 
 # typescript
 *.tsbuildinfo
@@ -105,7 +104,6 @@ desktop.ini
 .cache/
 tmp/
 temp/
-instrumentation.ts.bak
 
 # Build artifacts
 *.map
@@ -115,6 +113,11 @@ instrumentation.ts.bak
 *.chunk.js
 
 # StorySeal specific
+# Documentation files (temporary/analysis)
+*_pelajari*.md
+ANALISIS_*.md
+cursor_*.md
+
 # Local storage backups
 *.localstorage
 *.localstorage.backup
@@ -126,4 +129,70 @@ test-*.js
 *-test.js
 *-spec.ts
 *-spec.js
+
+# Generated images (if any temporary ones are created)
+*.generated.png
+*.generated.jpg
+*.generated.jpeg
+*.watermarked.png
+*.watermarked.jpg
+*.watermarked.jpeg
+
+# OpenTelemetry traces (if any are saved locally)
+*.trace.json
+traces/
+
+# IPFS cache (if any local caching is implemented)
+.ipfs/
+ipfs-cache/
+
+# Monitoring data exports
+monitoring-exports/
+scan-results/
+violation-reports/
+
+# Analytics and tracking data
+analytics-data/
+activity-logs/
+user-analytics.json
+
+# Database files (if any local DB is used)
+*.db
+*.sqlite
+*.sqlite3
+
+# Sharp cache (image processing)
+.sharp/
+
+# Story Protocol transaction data
+transaction-data/
+tx-receipts/
+
+# ABV.dev trace exports
+abv-traces/
+*.abv-trace.json
+
+# C2PA manifests (if saved locally)
+c2pa-manifests/
+*.c2pa.json
+
+# Wallet private keys (NEVER commit these!)
+*.wallet.json
+wallets/
+private-keys/
+
+# Screenshots and test images
+screenshots/
+test-images/
+*.screenshot.png
+
+# Performance and profiling data
+*.cpuprofile
+*.heapsnapshot
+performance/
+
+# StorySeal specific generated files
+storyseal-exports/
+ip-asset-exports/
+license-exports/
 

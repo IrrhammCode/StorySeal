@@ -264,3 +264,43 @@ a {
   66% { transform: translate(35px, 15px) rotate(-120deg); }
 }
 
+/* Dropdown Select Styling - Ensure text is visible */
+select {
+  color: white !important;
+  background-color: rgba(17, 24, 39, 0.9) !important;
+}
+
+select option {
+  background-color: rgba(17, 24, 39, 0.95) !important;
+  color: white !important;
+  padding: 8px;
+}
+
+select:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: #818CF8;
+}
+
+/* Ensure select text is visible in dark mode */
+.dark select {
+  color: white !important;
+  background-color: rgba(17, 24, 39, 0.9) !important;
+}
+
+.dark select option {
+  background-color: rgba(17, 24, 39, 0.95) !important;
+  color: white !important;
+}
+
+/* Logo Utility - Remove white background and show only logo shape */
+.logo-transparent {
+  /* Remove white background using mix-blend-mode screen */
+  mix-blend-mode: screen;
+  /* Enhance contrast to make logo pop */
+  filter: contrast(1.1) brightness(1.05);
+  /* Ensure smooth edges */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+

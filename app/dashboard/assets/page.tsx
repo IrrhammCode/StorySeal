@@ -92,6 +92,73 @@ export default function AssetsPage() {
     }
   }, [address, isConnected, refetch])
 
+  // Helper function to get image URL from asset metadata
+  const getImageUrl = (asset: any): string => {
+    // Try multiple sources for image URL (in order of preference)
+    let imageUrl = 
+      asset.metadata?.image ||           // Direct image URL
+      asset.metadata?.mediaUrl ||        // Media URL
+      asset.metadata?.thumbnail ||       // Thumbnail
+      asset.metadata?.metadata?.image || // Nested metadata
+      asset.metadata?.metadata?.mediaUrl || // Nested media URL
+      '' // Fallback to empty
+    
+    // If no direct image URL, try to extract from metadataURI
+    if (!imageUrl && asset.metadata?.metadataURI) {
+      // metadataURI might point to IPFS metadata JSON that contains image
+      // For now, we'll skip fetching (could be slow), but handle IPFS URLs
+      const metadataURI = asset.metadata.metadataURI
+      if (metadataURI.startsWith('ipfs://') || metadataURI.includes('ipfs/')) {
+        // Could fetch metadata from IPFS, but for now return empty
+        // This will trigger placeholder
+      }
+    }
+    
+    // Convert IPFS URL to gateway URL if needed
+    if (imageUrl) {
+      // Handle data URLs (SVG data URLs)
+      if (imageUrl.startsWith('data:image/')) {
+        return imageUrl
+      }
+      
+      // Handle IPFS URLs
+      if (imageUrl.startsWith('ipfs://')) {
+        const hash = imageUrl.replace('ipfs://', '').split('/')[0] // Get just the hash
+        return `https://gateway.pinata.cloud/ipfs/${hash}`
+      }
+      
+      if (imageUrl.includes('/ipfs/')) {
+        // Extract IPFS hash from URL
+        const match = imageUrl.match(/\/ipfs\/([^\/]+)/)
+        if (match && match[1]) {
+          return `https://gateway.pinata.cloud/ipfs/${match[1]}`
+        }
+      }
+      
+      // Return as-is if it's already a valid URL
+      if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+        return imageUrl
+      }
+    }
+    
+    // Fallback: Generate SVG placeholder inline (no external dependency)
+    // This ensures all assets have a valid image URL
+    const svgPlaceholder = `data:image/svg+xml;base64,${btoa(`
+      <svg width="500" height="500" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="grad${asset.id.slice(2, 8)}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <rect width="500" height="500" fill="url(#grad${asset.id.slice(2, 8)})"/>
+        <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="24" fill="white" text-anchor="middle" dominant-baseline="middle">IP Asset</text>
+      </svg>
+    `.trim())}`
+    
+    return svgPlaceholder
+  }
+
   // Convert Story Protocol assets to UI format
   const assets: IPAsset[] = storyAssets
     ? storyAssets.map((asset, index) => ({
@@ -99,7 +166,7 @@ export default function AssetsPage() {
         ipId: asset.id,
         name: asset.name || `IP Asset ${index + 1}`,
         type: (asset.metadata?.type as AssetType) || 'image',
-        thumbnail: asset.metadata?.thumbnail || asset.metadata?.mediaUrl || 'https://via.placeholder.com/500x500/4F46E5/FFFFFF?text=IP+Asset',
+        thumbnail: getImageUrl(asset),
         registeredAt: asset.registeredAt || new Date().toISOString(),
         status: 'protected' as const,
         metadata: {
@@ -141,6 +208,35 @@ export default function AssetsPage() {
     showToast('success', 'IP Asset ID copied to clipboard!')
   }
 
+  // Check violations for a specific asset
+  const handleCheckViolations = async (asset: IPAsset) => {
+    // Add to checking set
+    setCheckingViolations(prev => new Set(prev).add(asset.id))
+    
+    try {
+      // Redirect to monitor page with asset info
+      showToast('info', 'Opening Monitor page for violation checking...')
+      // Note: Full violation checking is available in Monitor page
+      // You can upload the asset image there to check for violations
+      
+      // Clear checking state after a short delay
+      setTimeout(() => {
+        setCheckingViolations(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(asset.id)
+          return newSet
+        })
+      }, 1000)
+    } catch (error: any) {
+      console.error('[AssetsPage] Failed to check violations:', error)
+      showToast('error', `Failed to check violations: ${error.message}`)
+      setCheckingViolations(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(asset.id)
+        return newSet
+      })
+    }
+  }
 
   // Auto-check violations periodically
   useEffect(() => {
@@ -151,43 +247,16 @@ export default function AssetsPage() {
       Notification.requestPermission()
     }
 
-    const checkAllViolations = async () => {
-      console.log('[AssetsPage] Auto-checking violations for all assets...')
-      // Violation monitoring can be implemented using similarity detection
-          
-          setViolations(prev => {
-            const newMap = new Map(prev)
-            const previousViolations = newMap.get(asset.id)
-            const previousCount = previousViolations?.infringements?.length || 0
-            newMap.set(asset.id, result)
+    // Note: Auto-check violations feature is disabled
+    // Users should use Monitor page for violation checking
+    // This useEffect is kept for future implementation
+    console.log('[AssetsPage] Auto-check violations disabled. Use Monitor page for violation checking.')
 
-            // Show notification if new violations detected
-            if (result.infringements && result.infringements.length > 0 && result.infringements.length > previousCount) {
-              if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('New Violation Detected', {
-                  body: `${result.infringements.length} violation(s) found for ${asset.name}`,
-                  icon: '/favicon.ico',
-                })
-              }
-              showToast('warning', `⚠️ ${result.infringements.length} violation(s) detected for ${asset.name}`, 5000)
-            }
-            
-            return newMap
-          })
-        } catch (error) {
-          console.warn(`[AssetsPage] Failed to check violations for ${asset.id}:`, error)
-        }
-      }
+    // Return cleanup function (no-op since we're not setting up intervals)
+    return () => {
+      // Cleanup if needed
     }
-
-    // Check immediately
-    checkAllViolations()
-
-    // Check every 5 minutes
-    const interval = setInterval(checkAllViolations, 5 * 60 * 1000)
-
-    return () => clearInterval(interval)
-  }, [autoCheckEnabled, address, assets.length, showToast])
+  }, [autoCheckEnabled, address, assets.length])
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -333,6 +402,23 @@ export default function AssetsPage() {
                     src={asset.thumbnail}
                     alt={asset.name}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback to SVG placeholder if image fails to load
+                      const target = e.target as HTMLImageElement
+                      const svgPlaceholder = `data:image/svg+xml;base64,${btoa(`
+                        <svg width="500" height="500" xmlns="http://www.w3.org/2000/svg">
+                          <defs>
+                            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+                              <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+                            </linearGradient>
+                          </defs>
+                          <rect width="500" height="500" fill="url(#grad)"/>
+                          <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="24" fill="white" text-anchor="middle" dominant-baseline="middle">IP Asset</text>
+                        </svg>
+                      `.trim())}`
+                      target.src = svgPlaceholder
+                    }}
                   />
                   <div className="absolute top-2 right-2 flex flex-col space-y-1">
                     <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
@@ -396,6 +482,23 @@ export default function AssetsPage() {
                       src={asset.thumbnail}
                       alt={asset.name}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Fallback to SVG placeholder if image fails to load
+                        const target = e.target as HTMLImageElement
+                        const svgPlaceholder = `data:image/svg+xml;base64,${btoa(`
+                          <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                              <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+                              </linearGradient>
+                            </defs>
+                            <rect width="200" height="200" fill="url(#grad)"/>
+                            <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="16" fill="white" text-anchor="middle" dominant-baseline="middle">IP Asset</text>
+                          </svg>
+                        `.trim())}`
+                        target.src = svgPlaceholder
+                      }}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -480,6 +583,23 @@ export default function AssetsPage() {
                   src={selectedAsset.thumbnail}
                   alt={selectedAsset.name}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback to SVG placeholder if image fails to load
+                    const target = e.target as HTMLImageElement
+                    const svgPlaceholder = `data:image/svg+xml;base64,${btoa(`
+                      <svg width="500" height="500" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                          <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+                          </linearGradient>
+                        </defs>
+                        <rect width="500" height="500" fill="url(#grad)"/>
+                        <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="24" fill="white" text-anchor="middle" dominant-baseline="middle">IP Asset</text>
+                      </svg>
+                    `.trim())}`
+                    target.src = svgPlaceholder
+                  }}
                 />
               </div>
 
@@ -538,6 +658,45 @@ export default function AssetsPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Violation Monitoring */}
+                <div className="glass rounded-lg p-4 border border-white/10">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-2">
+                      <Shield className="w-4 h-4 text-indigo-400" />
+                      <p className="text-xs font-medium text-white/60 uppercase">Violation Monitoring</p>
+                    </div>
+                    <button
+                      onClick={() => handleCheckViolations(selectedAsset)}
+                        disabled={checkingViolations.has(selectedAsset.id)}
+                        className="px-3 py-1.5 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                      >
+                        {checkingViolations.has(selectedAsset.id) ? (
+                          <>
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                            <span>Checking...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="w-3 h-3" />
+                            <span>Check Violations</span>
+                          </>
+                        )}
+                      </button>
+                  </div>
+                  
+                  <div className="p-3 bg-indigo-500/10 border border-indigo-400/30 rounded-lg">
+                    <p className="text-xs text-indigo-300 mb-2">
+                      💡 Use the Monitor page to scan for violations and check image originality.
+                    </p>
+                    <a
+                      href="/dashboard/monitor"
+                      className="text-xs text-indigo-400 hover:text-indigo-300 underline"
+                    >
+                      Go to Monitor Page →
+                    </a>
+                  </div>
+                </div>
 
                 <div className="flex space-x-3 pt-4">
                   <a

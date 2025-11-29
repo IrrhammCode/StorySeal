@@ -1,196 +1,272 @@
 # StorySeal
 
-> **Current Stage: Checkpoint 1 - Create your initial prototype**
-
 **Verify the Origin. Seal the Creation.**
 
-Advanced IP protection suite for the Generative AI era. StorySeal combines invisible watermarking (steganography) with Story Protocol to ensure that every AI-generated asset is verifiable and traceable.
+StorySeal is an advanced IP protection suite designed for the Generative AI era. We combine invisible watermarking (LSB steganography) with Story Protocol blockchain integration to ensure that every AI-generated asset is verifiable, traceable, and protected—even when metadata is stripped.
 
-## Selected Tracks
+## 🎯 Overview
 
-We are submitting this project for:
+StorySeal provides comprehensive intellectual property protection for AI-generated content through a multi-layered approach:
 
-1. **Main Track:** IP Detection & Enforcement ($5,000)
-2. **Partner Bounty:** GenAI IP Registration Challenge (ABV.dev)
+1. **AI Generation & Registration**: Generate high-quality AI assets using ABV.dev and automatically register them as IP assets on Story Protocol
+2. **Invisible Watermarking**: Embed imperceptible watermarks containing Story Protocol IP IDs directly into image pixels using LSB steganography
+3. **Detection & Verification**: Detect watermarks, verify ownership, and track usage across the web using AI-powered similarity detection and reverse image search
 
-## Features
+## ✨ Key Features
 
-- **Create & Register**: Generate high-quality AI assets with ABV.dev and automatically register them on Story Protocol
-- **Invisible Protection**: Embed imperceptible watermarks containing Story Protocol IP IDs directly into image pixels
-- **Detection & Enforcement**: Verify image provenance even when metadata is removed
+### Core Capabilities
+- **AI Image Generation**: Generate professional SVG artwork using ABV.dev's StorySeal-Engine with automatic Story Protocol registration
+- **Invisible Watermarking**: LSB steganography embeds IP IDs directly into image pixels—undetectable to the human eye
+- **Watermark Detection**: Extract and verify watermarks from images, even after compression or format conversion
+- **Blockchain Verification**: Verify IP asset ownership and provenance on Story Protocol blockchain
+- **AI-Powered Similarity Detection**: Detect similar images using perceptual hashing and machine learning
+- **Reverse Image Search**: Find image usage across the web using multiple search providers (SerpAPI, Serpdog, Bing, Google)
+- **C2PA Verification**: Verify Content Authenticity Initiative (C2PA) manifests for additional provenance
+- **Automated Monitoring**: Schedule automated scans to monitor your IP assets for violations
+- **License Management**: Create and attach Programmable IP Licenses (PIL) to your IP assets
+- **DMCA Tools**: Generate violation reports and DMCA notices for enforcement
 
-## How It Works
+### Security Features
+- **SSRF Protection**: All API routes validate URLs to prevent server-side request forgery
+- **XSS Protection**: SVG sanitization removes dangerous elements and scripts
+- **Input Validation**: Comprehensive validation for all user inputs
+- **DoS Protection**: File size limits and request timeouts prevent abuse
+- **Secure API Keys**: Environment variable management with client-side settings override
 
-1. **Generate & Register:** Users create assets using **ABV.dev** or **Gemini AI**, which automatically registers them on Story Protocol.
-2. **Invisible Watermark:** StorySeal embeds a steganographic watermark (IP ID) into the image pixels using LSB steganography.
-3. **Detection:** A public verification tool detects the watermark and retrieves the original IP ownership from the blockchain.
+## 🛠️ Tech Stack
 
-## Tech Stack
-
-- **Frontend**: Next.js 14, React, TypeScript
+### Frontend
+- **Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **3D Graphics**: React Three Fiber, Three.js
 - **Animations**: Framer Motion
 - **Icons**: Lucide React
-- **GenAI & IP**: ABV.dev API, Google Gemini AI
-- **Blockchain**: Story Protocol SDK, Wagmi, Viem
-- **Security**: LSB Steganography (JavaScript/TypeScript)
-- **Storage**: IPFS (Pinata)
 
-## Design System
+### Blockchain & Web3
+- **Blockchain**: Story Protocol (Aeneid Testnet)
+- **Web3**: Wagmi, Viem
+- **Wallet**: WalletConnect integration
 
-- **Background**: Porcelain (#F8FAFC)
-- **Primary Color**: Deep Indigo (#4F46E5)
-- **Secondary Color**: Coral (#F43F5E)
+### AI & Image Processing
+- **AI Generation**: ABV.dev API (StorySeal-Engine)
+- **Steganography**: Custom LSB (Least Significant Bit) implementation
+- **Image Processing**: Sharp (server-side), Canvas API (client-side)
+- **Similarity Detection**: Perceptual hashing (dHash algorithm)
 
-## Getting Started
+### Storage & Infrastructure
+- **IPFS**: Pinata integration for metadata storage
+- **Deployment**: Vercel-ready configuration
 
-1. Install dependencies:
-```bash
-npm install
-```
+### Security & Provenance
+- **C2PA**: Content Authenticity Initiative support
+- **OpenTelemetry**: Distributed tracing with ABV.dev
 
-2. Setup environment variables:
+## 🚀 Getting Started
 
-   **Option A: Copy from template**
+### Prerequisites
+- Node.js 18+ and npm
+- A Web3 wallet (MetaMask, WalletConnect, etc.)
+- ABV.dev API key (for AI generation)
+- Pinata API credentials (for IPFS storage, optional)
+- Story Protocol testnet tokens (IP tokens)
+
+### Installation
+
+1. **Clone the repository**
    ```bash
-   cp env.template .env.local
+   git clone <repository-url>
+   cd StorySeal
    ```
-   Then edit `.env.local` and add your actual API keys.
 
-   **Option B: Create manually**
-   Create a `.env.local` file and add your configuration:
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure environment variables**
+
+   Create a `.env.local` file in the root directory:
    ```env
    # Story Protocol Configuration
-   # Currently using Aeneid Testnet (for development/testing)
-   # For mainnet, update this URL when Story Protocol mainnet is available
-   
-   # Option 1: Public RPC (default)
    NEXT_PUBLIC_STORY_RPC_URL=https://aeneid.storyrpc.io
    
-   # Option 2: Tenderly RPC (recommended for hackathon - better debugging & monitoring)
-   # Get your Tenderly RPC URL from: https://dashboard.tenderly.co
-   # Steps: Register → Create Organization → Contact Support → Get RPC URL
-   # Format: https://rpc.tenderly.co/fork/{fork-id}
-   # NEXT_PUBLIC_STORY_RPC_URL=https://rpc.tenderly.co/fork/your-fork-id
-
-   # ABV.dev API (for AI image generation)
-   # Get your API key from: https://abv.dev
+   # ABV.dev API (Required for AI generation)
    NEXT_PUBLIC_ABV_API_KEY=your-abv-api-key-here
-   NEXT_PUBLIC_ABV_API_URL=https://api.abv.dev
-
-   # Google Gemini AI (optional - alternative to ABV.dev)
-   # Get your API key from: https://makersuite.google.com/app/apikey
-   NEXT_PUBLIC_GEMINI_API_KEY=your-gemini-api-key-here
-
-   # WalletConnect (optional - for wallet connection)
-   # Get your project ID from: https://cloud.walletconnect.com
+   NEXT_PUBLIC_ABV_API_URL=https://app.abv.dev
+   
+   # WalletConnect (Optional)
    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your-walletconnect-project-id
-
-   # Pinata IPFS (for metadata storage)
-   # Get your credentials from: https://pinata.cloud
-   PINATA_JWT=your-pinata-jwt-token
-   PINATA_GATEWAY_URL=https://gateway.pinata.cloud
-
-   # Tenderly Configuration (optional - for advanced debugging)
-   # Get from Tenderly Dashboard → Settings → API Keys
-   # TENDERLY_ACCESS_KEY=your-tenderly-access-key
-   # TENDERLY_PROJECT_SLUG=your-project-slug
-   # TENDERLY_ORG_SLUG=your-org-slug
-
-   # SPG NFT Contract (optional - for IP registration)
-   # Default testnet contract will be used if not provided
-   # NEXT_PUBLIC_SPG_NFT_CONTRACT=0x...
-
-   # Wallet Private Key (optional - for server-side operations)
-   # WARNING: Never commit this to version control!
-   # WALLET_PRIVATE_KEY=0x...
+   
+   # Pinata IPFS (Optional - for IPFS storage)
+   NEXT_PUBLIC_PINATA_API_KEY=your-pinata-api-key
+   NEXT_PUBLIC_PINATA_SECRET_KEY=your-pinata-secret-key
+   # OR use JWT token instead:
+   # NEXT_PUBLIC_PINATA_JWT_TOKEN=your-pinata-jwt-token
    ```
 
-   **Note:** 
-   - Currently configured for **Aeneid Testnet** (Story Protocol testnet)
-   - ✅ **Testnet diperbolehkan untuk hackathon** - Tidak perlu mainnet
-   - You can also configure these settings from the Settings page in the dashboard after connecting your wallet
-   - For mainnet deployment (optional), update `NEXT_PUBLIC_STORY_RPC_URL` when Story Protocol mainnet is available
+   **Note**: You can also configure these settings from the Settings page in the dashboard after connecting your wallet.
 
-3. **Get Testnet Tokens (IP Tokens)**:
-   
-   Aeneid Testnet menggunakan token khusus yang disebut **IP** (bukan ETH biasa). Anda perlu mendapatkan IP tokens dari faucet untuk melakukan transaksi:
-   
-   **Faucet Options:**
-   - **Official Faucet**: [docs.story.foundation/aeneid](https://docs.story.foundation/aeneid) - 10 IP per permintaan
+4. **Get Testnet Tokens**
+
+   Story Protocol Aeneid Testnet uses **IP tokens** (not ETH). Get testnet tokens from:
+   - **Official Faucet**: [docs.story.foundation/aeneid](https://docs.story.foundation/aeneid) - 10 IP per request
    - **Unity Nodes Faucet**: [faucet.unitynodes.com](https://faucet.unitynodes.com) - 5 IP per wallet
-   - **QuickNode Faucet**: 5 IP setiap 24 jam (tanpa perlu registrasi)
-   
-   **Cara mendapatkan:**
-   1. Pastikan wallet sudah terhubung ke **Aeneid Testnet** (Chain ID: 1315)
-   2. Kunjungi salah satu faucet di atas
-   3. Masukkan alamat wallet Anda
-   4. Klaim IP tokens
-   5. Setelah mendapat IP tokens, Anda bisa melakukan IP registration di StorySeal
+   - **QuickNode Faucet**: 5 IP every 24 hours
 
-4. Run the development server:
-```bash
-npm run dev
+   **Steps**:
+   1. Connect your wallet to **Aeneid Testnet** (Chain ID: 1315)
+   2. Visit one of the faucets above
+   3. Enter your wallet address
+   4. Claim IP tokens
+
+5. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+6. **Open your browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+## 📖 Usage Guide
+
+### Creating & Registering IP Assets
+
+1. **Connect Your Wallet**: Click "Connect Wallet" and select your preferred wallet
+2. **Navigate to Create & Register**: Go to Dashboard → Create & Register
+3. **Generate Image**: Enter a prompt and generate AI artwork using ABV.dev
+4. **Register on Blockchain**: Click "Register as IP Asset" to register on Story Protocol
+5. **Add Watermark**: Embed an invisible watermark containing the IP ID
+6. **Download Protected Asset**: Download your watermarked image
+
+### Verifying Images
+
+1. **Navigate to Verify**: Go to Dashboard → Verify
+2. **Upload Image**: Upload an image file or provide an image URL
+3. **Scan**: Click "Verify Origin" to detect watermarks and verify ownership
+4. **View Results**: See verification status, IP asset details, and ownership information
+
+### Monitoring & Scanning
+
+1. **Navigate to Monitor**: Go to Dashboard → Monitor
+2. **Upload Images**: Upload images to scan for violations
+3. **Enable Features**: Toggle AI detection, C2PA verification, or reverse search
+4. **View Results**: See detected violations, similar images, and web usage
+
+### Managing Licenses
+
+1. **Navigate to Licenses**: Go to Dashboard → Licenses
+2. **Create License Terms**: Define license terms for your IP assets
+3. **Attach to IP Asset**: Attach license terms to registered IP assets
+4. **Manage**: View and manage all your licenses
+
+## 🏗️ Project Structure
+
+```
+StorySeal/
+├── app/
+│   ├── page.tsx              # Landing page
+│   ├── login/                 # Login page
+│   └── dashboard/
+│       ├── layout.tsx         # Dashboard layout with sidebar
+│       ├── page.tsx           # Dashboard home
+│       ├── create/            # Create & Register page
+│       ├── verify/            # Verify Origin page
+│       ├── monitor/           # Monitor & Scan page
+│       ├── assets/            # My IP Assets page
+│       └── settings/          # Settings page
+├── components/
+│   ├── Scene3D.tsx           # 3D scene wrapper
+│   ├── Seal3D.tsx            # 3D seal component
+│   ├── ConnectWallet.tsx     # Wallet connection component
+│   └── Toast.tsx             # Toast notification component
+├── config/
+│   ├── wagmi.ts              # Wagmi configuration
+│   └── story.ts              # Story Protocol configuration
+├── services/
+│   ├── story-protocol.ts     # Story Protocol service
+│   ├── abv-dev.ts            # ABV.dev API service
+│   ├── ipfs-service.ts       # IPFS/Pinata service
+│   ├── reverse-image-search.ts # Reverse image search service
+│   └── c2pa-service.ts       # C2PA verification service
+├── hooks/
+│   ├── useStoryProtocol.ts   # Story Protocol hooks
+│   └── useABVDev.ts          # ABV.dev hooks
+├── lib/
+│   ├── watermark.ts          # LSB steganography utilities
+│   ├── image-similarity.ts   # AI similarity detection
+│   ├── validation.ts         # Input validation utilities
+│   ├── sanitize-svg.ts       # SVG sanitization
+│   └── error-handler.ts      # Error handling utilities
+└── contexts/
+    ├── ThemeContext.tsx      # Theme management
+    └── ToastContext.tsx   # Toast notifications
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
+## 🔒 Security
 
-## Features
+StorySeal implements comprehensive security measures:
 
-- **AI Image Generation**: Generate images using ABV.dev API or Google Gemini AI
-- **IP Registration**: Register AI-generated content as IP assets on Story Protocol
-- **Watermark Detection**: Detect invisible watermarks in images using LSB steganography
-- **IP Verification**: Verify IP asset ownership and provenance on Story Protocol
-- **Asset Management**: View and manage your registered IP assets
-- **Monitor & Scan**: Batch scanning for IP violations and monitoring
-- **License Management**: Create and manage licenses for IP assets
-- **Settings**: Configure API keys and preferences from the dashboard
+- **Input Validation**: All user inputs are validated and sanitized
+- **SSRF Protection**: URL validation prevents server-side request forgery
+- **XSS Protection**: SVG sanitization removes dangerous elements
+- **DoS Protection**: File size limits and request timeouts
+- **Secure Storage**: API keys stored securely (environment variables or localStorage)
+- **Error Handling**: Secure error messages that don't expose sensitive information
 
-## Project Structure
+See [SECURITY_AUDIT.md](./SECURITY_AUDIT.md) for detailed security documentation.
 
-```
-app/
-  ├── page.tsx          # Landing page
-  ├── login/
-  │   └── page.tsx      # Login page
-  └── dashboard/
-      ├── layout.tsx    # Dashboard layout with sidebar
-      ├── page.tsx      # Dashboard home
-      ├── create/       # Create & Register page
-      ├── verify/       # Verify Origin page
-      ├── monitor/      # Monitor & Scan page
-      ├── assets/       # My IP Assets page
-      ├── licenses/     # License management page
-      └── settings/     # Settings page
-components/
-  ├── Scene3D.tsx      # 3D scene wrapper
-  ├── Seal3D.tsx       # 3D seal component
-  └── Toast.tsx        # Toast notification component
-config/
-  ├── wagmi.ts         # Wagmi configuration
-  └── story.ts         # Story Protocol configuration
-services/
-  ├── story-protocol.ts # Story Protocol service
-  ├── abv-dev.ts       # ABV.dev API service
-  ├── gemini-ai.ts     # Google Gemini AI service
-  ├── ipfs-service.ts  # IPFS upload service
-  ├── c2pa-service.ts  # C2PA manifest service
-hooks/
-  ├── useStoryProtocol.ts # Story Protocol hooks
-  ├── useABVDev.ts     # ABV.dev hooks
-  └── useGeminiAI.ts   # Gemini AI hooks
-lib/
-  ├── watermark.ts     # Steganography utilities
-  ├── story-client.ts  # Story Protocol client
-  ├── analytics.ts     # Analytics tracking
-  ├── batch-processor.ts # Batch processing
-  └── activity-tracker.ts # Activity tracking
-contexts/
-  ├── ThemeContext.tsx # Theme management
-  └── ToastContext.tsx # Toast notifications
-```
+## 🚢 Deployment
 
-## License
+### Vercel Deployment
 
-MIT
+1. **Push to Git**: Push your code to GitHub/GitLab/Bitbucket
+2. **Import to Vercel**: 
+   - Go to [vercel.com](https://vercel.com)
+   - Click "Add New Project"
+   - Import your repository
+3. **Configure Environment Variables**:
+   - Go to Project Settings → Environment Variables
+   - Add all required variables from `.env.local`
+4. **Deploy**: Click "Deploy" and wait for build to complete
+
+See `vercel.json` for deployment configuration.
+
+## 📝 API Documentation
+
+### Internal API Routes
+
+- `POST /api/create-image-simple`: Generate AI images using ABV.dev
+- `POST /api/svg-to-png`: Convert SVG to PNG (server-side)
+- `POST /api/reverse-image-search`: Perform reverse image search
+
+All API routes include:
+- Input validation
+- Error handling
+- Security measures (SSRF protection, XSS protection, DoS protection)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+MIT License - see LICENSE file for details
+
+## 🔗 Links
+
+- **Story Protocol**: [docs.story.foundation](https://docs.story.foundation)
+- **ABV.dev**: [app.abv.dev](https://app.abv.dev)
+- **Pinata**: [pinata.cloud](https://pinata.cloud)
+- **Aeneid Testnet**: [docs.story.foundation/aeneid](https://docs.story.foundation/aeneid)
+
+## 🙏 Acknowledgments
+
+- Story Protocol for the blockchain infrastructure
+- ABV.dev for AI generation capabilities
+- Pinata for IPFS storage
+- The open-source community for amazing tools and libraries
+
+---
+
+**Built with ❤️ for the Generative AI era**

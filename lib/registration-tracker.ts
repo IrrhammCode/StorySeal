@@ -79,7 +79,33 @@ export function addRegistrationAttempt(
 export function getRegistrationStats() {
   const attempts = getRegistrationAttempts()
   
+  // Get total registered IP assets from localStorage
+  // This is a fallback if attempts are not tracked properly
+  let totalRegisteredIPs = 0
+  try {
+    if (typeof window !== 'undefined') {
+      // Try to get from localStorage if available
+      const stored = localStorage.getItem('storyseal_total_registered_ips')
+      if (stored) {
+        totalRegisteredIPs = parseInt(stored) || 0
+      }
+    }
+  } catch (error) {
+    console.error('Failed to get total registered IPs:', error)
+  }
+  
   if (attempts.length === 0) {
+    // If no attempts tracked but we have registered IPs, assume 100% success
+    if (totalRegisteredIPs > 0) {
+      return {
+        total: totalRegisteredIPs,
+        success: totalRegisteredIPs,
+        failure: 0,
+        successRate: 100,
+        averageDuration: 0,
+        recentFailures: [],
+      }
+    }
     return {
       total: 0,
       success: 0,
@@ -92,7 +118,20 @@ export function getRegistrationStats() {
   
   const success = attempts.filter(a => a.status === 'success').length
   const failure = attempts.filter(a => a.status === 'failure').length
-  const successRate = (success / attempts.length) * 100
+  
+  // Calculate success rate: if we have registered IPs but no attempts, use 100%
+  // Otherwise, calculate from attempts
+  let successRate = 0
+  if (attempts.length > 0) {
+    successRate = (success / attempts.length) * 100
+  } else if (totalRegisteredIPs > 0) {
+    successRate = 100
+  }
+  
+  // Use total registered IPs if it's higher than success attempts
+  // This handles cases where IPs were registered before tracking was implemented
+  const total = Math.max(attempts.length, totalRegisteredIPs)
+  const actualSuccess = Math.max(success, totalRegisteredIPs)
   
   const durations = attempts
     .filter(a => a.duration !== undefined)
@@ -111,9 +150,9 @@ export function getRegistrationStats() {
     }))
   
   return {
-    total: attempts.length,
-    success,
-    failure,
+    total: total,
+    success: actualSuccess,
+    failure: failure,
     successRate: Math.round(successRate * 10) / 10, // Round to 1 decimal
     averageDuration: Math.round(averageDuration),
     recentFailures,

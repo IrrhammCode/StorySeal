@@ -56,7 +56,6 @@ const CACHE_MAX_AGE = 60000 // 1 minute
 async function getCachedMetadata(uri: string): Promise<any | null> {
   const cached = metadataCache.get(uri)
   if (cached && Date.now() - cached.timestamp < CACHE_MAX_AGE) {
-    console.log('[IPFS] Using cached metadata for:', uri)
     return cached.data
   }
   return null
@@ -78,25 +77,14 @@ const getPinataCredentials = () => {
     const secretKey = localStorage.getItem('pinata_secret_key')
     const jwtToken = localStorage.getItem('pinata_jwt_token')
     
-    console.log('[IPFS] Checking localStorage credentials...')
-    console.log('[IPFS] API Key exists:', !!apiKey, 'Length:', apiKey?.length || 0)
-    console.log('[IPFS] Secret Key exists:', !!secretKey, 'Length:', secretKey?.length || 0)
-    console.log('[IPFS] JWT Token exists:', !!jwtToken, 'Length:', jwtToken?.length || 0)
-    
     // Priority 1: API Key + Secret Key (most common)
     if (apiKey && secretKey && apiKey.trim() !== '' && secretKey.trim() !== '') {
-      console.log('[IPFS] ✅ Using API Key + Secret Key authentication')
       return { type: 'apikey', apiKey: apiKey.trim(), secretKey: secretKey.trim() }
-    } else {
-      console.log('[IPFS] ⚠️ API Key + Secret Key not found or empty')
     }
     
     // Priority 2: JWT Token (if API Key not available)
     if (jwtToken && jwtToken.trim() !== '' && jwtToken !== 'your-pinata-jwt-token') {
-      console.log('[IPFS] ⚠️ Using JWT Token authentication (API Key not available)')
       return { type: 'jwt', token: jwtToken.trim() }
-    } else {
-      console.log('[IPFS] ⚠️ JWT Token not found or empty')
     }
   }
   
@@ -107,13 +95,11 @@ const getPinataCredentials = () => {
   
   // Priority 1: API Key + Secret Key
   if (envApiKey && envSecretKey && envApiKey.trim() !== '' && envSecretKey.trim() !== '') {
-    console.log('[IPFS] Using API Key + Secret Key from env')
     return { type: 'apikey', apiKey: envApiKey.trim(), secretKey: envSecretKey.trim() }
   }
   
   // Priority 2: JWT Token
   if (envJwt && envJwt.trim() !== '' && envJwt !== 'your-pinata-jwt-token') {
-    console.log('[IPFS] Using JWT Token from env')
     return { type: 'jwt', token: envJwt.trim() }
   }
   
@@ -155,7 +141,6 @@ export async function uploadToIPFS(file: File | Blob, filename?: string): Promis
     throw new Error(errorMsg)
   }
   
-  console.log('[IPFS] Credentials found, proceeding with upload...')
 
   try {
     // Convert file/blob to FormData
@@ -181,13 +166,11 @@ export async function uploadToIPFS(file: File | Blob, filename?: string): Promis
     const headers: Record<string, string> = {}
     
     if (credentials.type === 'jwt') {
-      headers['Authorization'] = `Bearer ${credentials.token}`
+      headers['Authorization'] = `Bearer ${credentials.token || ''}`
     } else if (credentials.type === 'apikey') {
-      headers['pinata_api_key'] = credentials.apiKey
-      headers['pinata_secret_api_key'] = credentials.secretKey
+      headers['pinata_api_key'] = credentials.apiKey || ''
+      headers['pinata_secret_api_key'] = credentials.secretKey || ''
     }
-    
-    console.log('[IPFS] Uploading to Pinata...')
     
     // Use throttler untuk avoid rate limiting
     const response = await throttler.add(() => 
@@ -214,10 +197,6 @@ export async function uploadToIPFS(file: File | Blob, filename?: string): Promis
     
     // Return IPFS URL
     const ipfsUrl = `ipfs://${cid}`
-    const gatewayUrl = `https://gateway.pinata.cloud/ipfs/${cid}`
-    
-    console.log('[IPFS] ✅ Uploaded to IPFS:', ipfsUrl)
-    console.log('[IPFS] Gateway URL:', gatewayUrl)
     
     return ipfsUrl
   } catch (error: any) {
@@ -231,22 +210,7 @@ export async function uploadToIPFS(file: File | Blob, filename?: string): Promis
  */
 export async function uploadTextToIPFS(content: string, filename: string = 'metadata.json'): Promise<string> {
   const blob = new Blob([content], { type: 'application/json' })
-  const ipfsUrl = await uploadToIPFS(blob, filename)
-  // Extract IPFS hash from URL (ipfs://Qm... or https://gateway.pinata.cloud/ipfs/Qm...)
-  const hash = ipfsUrl.replace('ipfs://', '').replace('https://gateway.pinata.cloud/ipfs/', '').replace('https://ipfs.io/ipfs/', '')
-  return hash // Return just the hash (Qm...)
-}
-
-/**
- * Upload JSON string to IPFS (for exact hash matching)
- * This ensures the exact string used for hash calculation is uploaded
- */
-export async function uploadJSONStringToIPFS(jsonString: string): Promise<string> {
-  const blob = new Blob([jsonString], { type: 'application/json' })
-  const ipfsUrl = await uploadToIPFS(blob, 'metadata.json')
-  // Extract IPFS hash from URL (ipfs://Qm... or https://gateway.pinata.cloud/ipfs/Qm...)
-  const hash = ipfsUrl.replace('ipfs://', '').replace('https://gateway.pinata.cloud/ipfs/', '').replace('https://ipfs.io/ipfs/', '')
-  return hash // Return just the hash (Qm...)
+  return uploadToIPFS(blob, filename)
 }
 
 /**
@@ -255,7 +219,11 @@ export async function uploadJSONStringToIPFS(jsonString: string): Promise<string
  */
 export async function uploadJSONToIPFS(jsonMetadata: any): Promise<string> {
   const jsonString = JSON.stringify(jsonMetadata)
-  return uploadJSONStringToIPFS(jsonString)
+  const blob = new Blob([jsonString], { type: 'application/json' })
+  const ipfsUrl = await uploadToIPFS(blob, 'metadata.json')
+  // Extract IPFS hash from URL (ipfs://Qm... or https://gateway.pinata.cloud/ipfs/Qm...)
+  const hash = ipfsUrl.replace('ipfs://', '').replace('https://gateway.pinata.cloud/ipfs/', '').replace('https://ipfs.io/ipfs/', '')
+  return hash // Return just the hash (Qm...)
 }
 
 /**

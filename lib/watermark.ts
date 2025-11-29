@@ -1,8 +1,38 @@
 /**
+ * Extract IP ID from SVG comment (for SVG files)
+ */
+export async function extractWatermarkFromSVG(svgFile: File): Promise<string | null> {
+  try {
+    const svgText = await svgFile.text()
+    const sealMatch = svgText.match(/<!-- SEAL-IP:([^>]+) -->/)
+    if (sealMatch) {
+      const sealId = sealMatch[1]
+      // Return the signature, but note it's not an IP ID yet
+      // This will be replaced with actual IP ID after registration
+      return sealId
+    }
+    return null
+  } catch (error) {
+    console.error('[Watermark] Error extracting from SVG:', error)
+    return null
+  }
+}
+
+/**
  * Extract IP ID from watermark in image using LSB steganography
  */
 export async function extractWatermarkFromImage(imageFile: File): Promise<string | null> {
   try {
+    // For SVG files, try to extract from comment first
+    if (imageFile.type === 'image/svg+xml' || imageFile.name.endsWith('.svg')) {
+      const svgWatermark = await extractWatermarkFromSVG(imageFile)
+      if (svgWatermark) {
+        // If it's a SEAL signature, we can't verify it on-chain yet
+        // But we return it so verify page can show that watermark exists
+        return svgWatermark
+      }
+    }
+    
     // Create image element
     const img = new Image()
     const imageUrl = URL.createObjectURL(imageFile)
@@ -14,6 +44,7 @@ export async function extractWatermarkFromImage(imageFile: File): Promise<string
         const ctx = canvas.getContext('2d')
         if (!ctx) {
           URL.revokeObjectURL(imageUrl)
+          console.error('[Watermark Extract] Failed to get canvas context')
           resolve(null)
           return
         }
@@ -42,6 +73,8 @@ export async function extractWatermarkFromImage(imageFile: File): Promise<string
         }
         
         // Check if length is valid (reasonable size)
+        // IP ID is 42 characters = 42 bytes = 336 bits, plus null terminator = 8 bits = 344 bits total
+        // So valid range should be around 40-400 bits
         if (length <= 0 || length > 1000) {
           URL.revokeObjectURL(imageUrl)
           resolve(null)
@@ -49,7 +82,8 @@ export async function extractWatermarkFromImage(imageFile: File): Promise<string
         }
         
         // Extract the actual data
-        for (let i = 32; i < 32 + length * 8; i++) {
+        // NOTE: length is already in BITS, not bytes, so we don't multiply by 8
+        for (let i = 32; i < 32 + length; i++) {
           const pixelIndex = Math.floor(i / 4)
           const channelIndex = i % 4
           if (pixelIndex * 4 + channelIndex < pixels.length) {
@@ -60,20 +94,47 @@ export async function extractWatermarkFromImage(imageFile: File): Promise<string
         
         // Convert binary to string
         let extractedString = ''
+        const charCodes: number[] = []
         for (let i = 0; i < binaryData.length; i += 8) {
           let charCode = 0
           for (let j = 0; j < 8 && i + j < binaryData.length; j++) {
             charCode |= (binaryData[i + j] << (7 - j))
           }
           if (charCode === 0) break // Null terminator
+          charCodes.push(charCode)
           extractedString += String.fromCharCode(charCode)
         }
         
         URL.revokeObjectURL(imageUrl)
         
+        // Try to clean up the string - remove any non-printable characters at the start
+        let cleanedString = extractedString.trim()
+        
+        // If it doesn't start with 0x, try to find it in the string
+        if (!cleanedString.startsWith('0x')) {
+          const indexOf0x = cleanedString.indexOf('0x')
+          if (indexOf0x !== -1) {
+            cleanedString = cleanedString.substring(indexOf0x)
+          } else {
+            // Try to find just 'x' followed by hex
+            const indexOfX = cleanedString.indexOf('x')
+            if (indexOfX > 0 && cleanedString[indexOfX - 1] === '0') {
+              cleanedString = cleanedString.substring(indexOfX - 1)
+            }
+          }
+        }
+        
         // Validate extracted string (should be a valid IP ID format)
-        if (extractedString.startsWith('0x') && extractedString.length >= 42) {
-          resolve(extractedString)
+        if (cleanedString.startsWith('0x') && cleanedString.length >= 42) {
+          // Check if it's a valid hex string
+          const hexPart = cleanedString.substring(2)
+          if (/^[0-9a-fA-F]{40,}$/.test(hexPart)) {
+            // Take only first 42 characters (0x + 40 hex chars)
+            const validIpId = cleanedString.substring(0, 42)
+            resolve(validIpId)
+          } else {
+            resolve(null)
+          }
         } else {
           resolve(null)
         }
@@ -100,6 +161,16 @@ export async function embedWatermarkInImage(
   ipId: string
 ): Promise<File> {
   try {
+    // Validate IP ID format
+    if (!ipId.startsWith('0x') || ipId.length < 42) {
+      console.error('[Watermark Embed] ❌ Invalid IP ID format:', {
+        ipId,
+        length: ipId.length,
+        expectedFormat: '0x followed by 40 hex characters (42 total)'
+      })
+      throw new Error(`Invalid IP ID format. Expected format: 0x followed by 40 hex characters (42 total), got: ${ipId.length} characters`)
+    }
+    
     // Create image element
     const img = new Image()
     const imageUrl = URL.createObjectURL(imageFile)
@@ -188,7 +259,42 @@ export async function embedWatermarkInImage(
           const watermarkedFile = new File([blob], imageFile.name, {
             type: imageFile.type || 'image/png',
           })
-          resolve(watermarkedFile)
+          
+          // CRITICAL: Verify watermark was embedded correctly
+          // Use Promise to handle async verification
+          extractWatermarkFromImage(watermarkedFile)
+            .then((extractedIpId) => {
+              if (!extractedIpId) {
+                console.error('[Watermark Embed] ❌ Verification failed: No watermark found in embedded image')
+                reject(new Error('Watermark verification failed: No watermark detected in the embedded image. Please try again.'))
+                return
+              }
+              
+              // Normalize IP IDs for comparison (lowercase, exact length)
+              const normalizedEmbedded = ipId.toLowerCase().substring(0, 42)
+              const normalizedExtracted = extractedIpId.toLowerCase().substring(0, 42)
+              
+              if (normalizedEmbedded !== normalizedExtracted) {
+                console.error('[Watermark Embed] ❌ Verification failed: IP ID mismatch', {
+                  embedded: normalizedEmbedded,
+                  extracted: normalizedExtracted,
+                  match: normalizedEmbedded === normalizedExtracted
+                })
+                reject(new Error(`Watermark verification failed: Embedded IP ID (${normalizedEmbedded}) does not match extracted IP ID (${normalizedExtracted}). The watermark may be corrupted.`))
+                return
+              }
+              
+              console.log('[Watermark Embed] ✅ Verification successful! Watermark correctly embedded:', {
+                ipId: normalizedEmbedded,
+                verified: true
+              })
+              
+              resolve(watermarkedFile)
+            })
+            .catch((verifyError: any) => {
+              console.error('[Watermark Embed] ❌ Verification error:', verifyError)
+              reject(new Error(`Watermark verification failed: ${verifyError.message || 'Unknown error'}`))
+            })
         }, imageFile.type || 'image/png')
       }
       

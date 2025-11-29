@@ -31,12 +31,25 @@ export function parseError(error: unknown): ErrorInfo {
     
     // Network errors
     if (message.includes('network') || message.includes('rpc') || message.includes('fetch')) {
+      // Check for specific network error types
+      const isUrlError = message.includes('url') || message.includes('404') || message.includes('not found') || message.includes('failed to fetch')
+      const isConnectionError = message.includes('connection') || message.includes('timeout') || message.includes('refused')
+      
+      let userMessage = 'Network error'
+      if (isUrlError) {
+        userMessage = 'Network error or URL not found. Please check the URL and your internet connection.'
+      } else if (isConnectionError) {
+        userMessage = 'Network error or connection failed. Please check your internet connection and try again.'
+      } else {
+        userMessage = 'Network error or URL not found. Please check your internet connection and the URL, then try again.'
+      }
+      
       return {
         message: error.message,
-        userMessage: 'Network error. Please check your internet connection and try again.',
+        userMessage,
         code: 'NETWORK_ERROR',
         retryable: true,
-        suggestion: 'Check your internet connection and RPC endpoint settings.',
+        suggestion: 'Check your internet connection, RPC endpoint settings, and verify the URL is accessible.',
       }
     }
     

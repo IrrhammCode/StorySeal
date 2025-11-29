@@ -41,25 +41,111 @@ export function getAnalytics(): AnalyticsData {
   const registrationStats = getRegistrationStats()
   const activities = getActivities()
   
+  // Get total registered IP assets from localStorage (if available)
+  // This helps calculate success rate more accurately
+  let totalRegisteredIPs = 0
+  try {
+    if (typeof window !== 'undefined') {
+      // Try to get from localStorage if available
+      const stored = localStorage.getItem('storyseal_total_registered_ips')
+      if (stored) {
+        totalRegisteredIPs = parseInt(stored) || 0
+      }
+    }
+  } catch (error) {
+    console.error('Failed to get total registered IPs:', error)
+  }
+  
+  // If we have registered IPs but no attempts tracked, update success rate
+  let adjustedStats = { ...registrationStats }
+  if (totalRegisteredIPs > 0 && registrationStats.total === 0) {
+    adjustedStats = {
+      total: totalRegisteredIPs,
+      success: totalRegisteredIPs,
+      failure: 0,
+      successRate: 100,
+      averageDuration: 0,
+      recentFailures: [],
+    }
+  } else if (totalRegisteredIPs > registrationStats.success) {
+    // If we have more registered IPs than tracked successes, adjust
+    adjustedStats = {
+      ...registrationStats,
+      total: Math.max(registrationStats.total, totalRegisteredIPs),
+      success: Math.max(registrationStats.success, totalRegisteredIPs),
+      successRate: registrationStats.total > 0 
+        ? Math.round((Math.max(registrationStats.success, totalRegisteredIPs) / registrationStats.total) * 1000) / 10
+        : 100,
+    }
+  }
+  
   // Calculate registration trend (last 7 days)
+  // Use both registration attempts and IP assets from localStorage
   const attempts = getRegistrationAttempts()
   const sevenDaysAgo = new Date()
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
   
+  // Get successful registrations from attempts
   const recentAttempts = attempts.filter(
-    a => new Date(a.timestamp) >= sevenDaysAgo
+    a => a.status === 'success' && new Date(a.timestamp) >= sevenDaysAgo
   )
+  
+  // Also try to get IP assets from localStorage to fill in missing data
+  let ipAssetsData: Array<{ timestamp: string }> = []
+  try {
+    if (typeof window !== 'undefined') {
+      // Try to get manual IP assets
+      const address = window.ethereum?.selectedAddress || ''
+      if (address) {
+        const manualAssetsKey = `storyseal_manual_ip_assets_${address}`
+        const stored = localStorage.getItem(manualAssetsKey)
+        if (stored) {
+          const assets = JSON.parse(stored)
+          ipAssetsData = assets
+            .filter((a: any) => a.registeredAt && new Date(a.registeredAt) >= sevenDaysAgo)
+            .map((a: any) => ({ timestamp: a.registeredAt }))
+        }
+      }
+      
+      // Also check for IP assets stored in activities
+      const activities = getActivities()
+      const registrationActivities = activities.filter(
+        a => a.type === 'ip_registered' && new Date(a.timestamp) >= sevenDaysAgo
+      )
+      ipAssetsData = [...ipAssetsData, ...registrationActivities.map(a => ({ timestamp: a.timestamp }))]
+    }
+  } catch (error) {
+    console.error('Failed to get IP assets for trend:', error)
+  }
+  
+  // Combine attempts and IP assets data
+  const allRegistrations = [
+    ...recentAttempts.map(a => ({ timestamp: a.timestamp })),
+    ...ipAssetsData
+  ]
   
   // Group by date
   const trendMap = new Map<string, number>()
-  recentAttempts.forEach(attempt => {
-    const date = new Date(attempt.timestamp).toISOString().split('T')[0]
+  allRegistrations.forEach(reg => {
+    const date = new Date(reg.timestamp).toISOString().split('T')[0]
     trendMap.set(date, (trendMap.get(date) || 0) + 1)
   })
+  
+  // Fill in missing dates for last 7 days (for better visualization)
+  const today = new Date()
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+    const dateStr = date.toISOString().split('T')[0]
+    if (!trendMap.has(dateStr)) {
+      trendMap.set(dateStr, 0)
+    }
+  }
   
   const trend = Array.from(trendMap.entries())
     .map(([date, count]) => ({ date, count }))
     .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-7) // Only last 7 days
   
   // Detection stats (from localStorage)
   const detectionCount = parseInt(localStorage.getItem('detection_count') || '0')
@@ -102,7 +188,7 @@ export function getAnalytics(): AnalyticsData {
   
   return {
     registrations: {
-      ...registrationStats,
+      ...adjustedStats,
       trend,
     },
     detections: {
