@@ -1367,7 +1367,7 @@ Please switch your wallet to Aeneid Testnet (Chain ID: ${aeneidTestnet.id}) manu
                     <li>Activate the <strong>Story Protocol</strong> connector if not already enabled</li>
                     <li>Return to StorySeal and generate your image using the prompt</li>
                     <li>After generation, go back to ABV.dev dashboard → <strong>Connectors</strong> → <strong>Dashboard Story Protocol</strong></li>
-                    <li>You should see <strong>2 items</strong> appear (input prompt and output image)</li>
+                    <li>You should see <strong>2 items</strong> appear (trace and output)</li>
                     <li>Click the <strong>"Register"</strong> button and wait for the registration to complete</li>
                     <li>Copy the <strong>IP Asset ID</strong> from the dashboard and paste it in the input field below (optional - for tracking)</li>
                   </ol>
@@ -1810,7 +1810,7 @@ Please switch your wallet to Aeneid Testnet (Chain ID: ${aeneidTestnet.id}) manu
                   <li>Activate the <strong>Story Protocol</strong> connector if not already enabled</li>
                   <li>Return to StorySeal and generate your image</li>
                   <li>Go to ABV.dev dashboard → <strong>Connectors</strong> → <strong>Dashboard Story Protocol</strong></li>
-                  <li>You should see <strong>2 items</strong> (input prompt and output image)</li>
+                  <li>You should see <strong>2 items</strong> (trace and output)</li>
                   <li>Click the <strong>"Register"</strong> button and wait for completion</li>
                   <li>Copy the <strong>IP Asset ID</strong> from the dashboard</li>
                   <li>Paste it in the input field below (optional - for tracking in StorySeal)</li>
