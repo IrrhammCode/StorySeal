@@ -196,3 +196,11 @@ storyseal-exports/
 ip-asset-exports/
 license-exports/
 
+# Demo and presentation files
+*.demo.*
+presentation/
+
+# Markdown files (ignore all .md files except README.md)
+*.md
+!README.md
+
